@@ -156,8 +156,12 @@
     <ClCompile Include="VulkanApp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
+    <None Include="shaders\closesthit.rchit" />
+    <None Include="shaders\miss.rmiss" />
+    <None Include="shaders\raygen.rgen" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="texture.jpg" />

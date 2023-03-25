@@ -38,6 +38,16 @@
     <None Include="shader.frag">
       <Filter>Archivos de recursos\shaders</Filter>
     </None>
+    <None Include="cpp.hint" />
+    <None Include="shaders\closesthit.rchit">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\miss.rmiss">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\raygen.rgen">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="texture.jpg">

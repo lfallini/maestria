@@ -37,16 +37,30 @@
 const std::string MODEL_PATH = "./viking_room.obj";
 const std::string TEXTURE_PATH = "./viking_room.png";
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const int MAX_FRAMES_IN_FLIGHT = 1;
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
 
 const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 
+	// Ray tracing extensions
+	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+
+	// Required by VK_KHR_acceleration_structure
+	VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+	VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+
+	// Required for VK_KHR_ray_tracing_pipeline
+	VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+
+	// Required by VK_KHR_spirv_1_4
+	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+};
 
 struct Vertex {
 	glm::vec3 pos;
@@ -159,7 +173,7 @@ public:
 	};
 	virtual ~VulkanApp() {};
 
-private:
+protected:
 	AppSettings appSettings;
 	GLFWwindow* window;
 	VkInstance instance;
@@ -218,7 +232,7 @@ private:
 	}
 
 	void createInstance();
-	void initVulkan();
+	void virtual initVulkan();
 
 	void loadModel();
 	bool hasStencilComponent(VkFormat format);
@@ -254,7 +268,7 @@ private:
 
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags memoryFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	void createVertexBuffer();
 
@@ -289,6 +303,8 @@ private:
 	bool isDeviceSuitable(VkPhysicalDevice device);
 
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+
+	void virtual bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline);
 
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
