@@ -89,10 +89,12 @@ public:
 	void createRayTracingPipeline();
 	void createShaderBindingTable();
 	void createDescriptorSets();
-	void buildCommandBuffers();
+	void buildCommandBuffers(uint32_t imageIndex);
 	
 	void initVulkan() override;
 	void bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline) override;
+
+	void drawFrame() override;
 
 	inline VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer)
 	{

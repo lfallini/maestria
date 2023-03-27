@@ -85,11 +85,11 @@ void RtVulkanApp::createBottomLevelAS()
 
 	createVertexBuffer();
 	createIndexBuffer();
-	//createTransformMatrixBuffer();
+	createTransformMatrixBuffer();
 
 	VkDeviceAddress indexBufferAddress = getBufferDeviceAddress(device, indexBuffer);
 	VkDeviceAddress vertexBufferAddress = getBufferDeviceAddress(device, vertexBuffer);
-	//VkDeviceAddress transformMatrixBufferAddress = getBufferDeviceAddress(device, transformMatrixBuffer);
+	VkDeviceAddress transformMatrixBufferAddress = getBufferDeviceAddress(device, transformMatrixBuffer);
 
 	// The bottom level acceleration structure contains one set of triangles as the input geometry
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
@@ -103,7 +103,7 @@ void RtVulkanApp::createBottomLevelAS()
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = indexBufferAddress;
-	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;// .deviceAddress = transformMatrixBufferAddress;
+	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = transformMatrixBufferAddress;
 
 	// Get the size requirements for buffers involved in the acceleration structure build process
 	VkAccelerationStructureBuildGeometryInfoKHR acceleration_structure_build_geometry_info{};
@@ -652,7 +652,7 @@ void set_image_layout(
 		0, nullptr,
 		1, &barrier);
 }
-void RtVulkanApp::buildCommandBuffers()
+void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex)
 {
 	if (appSettings.width != storageImage.width || appSettings.height != storageImage.height)
 	{
@@ -675,7 +675,7 @@ void RtVulkanApp::buildCommandBuffers()
 		resultImageWrite.descriptorCount = 1;
 
 		vkUpdateDescriptorSets(device, 1, &resultImageWrite, 0, VK_NULL_HANDLE);
-		buildCommandBuffers();
+		buildCommandBuffers(imageIndex);
 	}
 
 	VkCommandBufferBeginInfo commandBufferBeginInfo{};
@@ -685,6 +685,7 @@ void RtVulkanApp::buildCommandBuffers()
 
 	for (int32_t i = 0; i < commandBuffers.size(); ++i)
 	{
+		vkResetCommandBuffer(commandBuffers[i], 0);
 		VK_CHECK(vkBeginCommandBuffer(commandBuffers[i], &commandBufferBeginInfo));
 
 		/*
@@ -733,7 +734,7 @@ void RtVulkanApp::buildCommandBuffers()
 		// Prepare current swap chain image as transfer destination
 		set_image_layout(
 			commandBuffers[i],
-			swapChainImages[i],
+			swapChainImages[imageIndex],
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			subresourceRange);
@@ -754,12 +755,12 @@ void RtVulkanApp::buildCommandBuffers()
 		copyRegion.extent = { appSettings.width, appSettings.height, 1 };
 
 		vkCmdCopyImage(commandBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+			swapChainImages[imageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
 		// Transition swap chain image back for presentation
 		set_image_layout(
 			commandBuffers[i],
-			swapChainImages[i],
+			swapChainImages[imageIndex],
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			subresourceRange);
@@ -832,7 +833,7 @@ void RtVulkanApp::initVulkan() {
 	//createDescriptorPool();
 	createDescriptorSets();
 	createCommandBuffers();
-	buildCommandBuffers();
+	//buildCommandBuffers();
 
 	createSyncObjects();
 }
@@ -840,6 +841,72 @@ void RtVulkanApp::initVulkan() {
 void RtVulkanApp::bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipeline);
+}
+
+void RtVulkanApp::drawFrame()
+{
+	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+	uint32_t imageIndex;
+	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		recreateSwapChain();
+		return;
+	}
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		throw std::runtime_error("failed to acquire swap chain image!");
+	}
+
+	// Only reset the fence if we are submitting work
+	vkResetFences(device, 1, &inFlightFences[currentFrame]);
+
+	buildCommandBuffers(imageIndex);
+	updateUniformBuffer(currentFrame);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+
+	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
+		throw std::runtime_error("failed to submit draw command buffer!");
+	}
+
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = signalSemaphores;
+
+	VkSwapchainKHR swapChains[] = { swapChain };
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapChains;
+	presentInfo.pImageIndices = &imageIndex;
+	presentInfo.pResults = nullptr;
+
+	// Recreate the swap chain if needed
+	result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+		recreateSwapChain();
+	}
+	else if (result != VK_SUCCESS) {
+		throw std::runtime_error("failed to present swap chain image!");
+	}
+	// End recreate swap chain
+
+	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void RtVulkanApp::createTransformMatrixBuffer() {

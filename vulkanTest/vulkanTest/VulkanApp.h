@@ -316,7 +316,7 @@ protected:
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 	void mainLoop();
-	void drawFrame();
+	void virtual drawFrame();
 
 	void cleanup();
 
