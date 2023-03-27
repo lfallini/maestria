@@ -389,7 +389,7 @@ void RtVulkanApp::createRayTracingPipeline()
 	raytracingPipelineCreateInfo.maxPipelineRayRecursionDepth = 1;
 	raytracingPipelineCreateInfo.layout = pipelineLayout;
 	
-	if (pfnCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &raytracingPipelineCreateInfo, nullptr, &pipelineRT) != VK_SUCCESS) {
+	if (pfnCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &raytracingPipelineCreateInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
 		throw std::runtime_error("Error creating Ray tracing pipeline");
 	}
 
@@ -432,7 +432,7 @@ void RtVulkanApp::createShaderBindingTable()
 
 	// Copy the pipeline's shader handles into a host buffer
 	std::vector<uint8_t> shaderHandleStorage(sbtSize);
-	if (pfnGetRayTracingShaderGroupHandlesKHR(device, pipelineRT, 0, groupCount, sbtSize, shaderHandleStorage.data()) != VK_SUCCESS) {
+	if (pfnGetRayTracingShaderGroupHandlesKHR(device, graphicsPipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()) != VK_SUCCESS) {
 		throw std::runtime_error("Error getting Ray tracing Shader Group Handles");
 	}
 
@@ -502,7 +502,7 @@ void RtVulkanApp::createDescriptorSets()
 
 	VkDescriptorBufferInfo bufferDescriptor{};
 	bufferDescriptor.buffer = uniformBuffers[0];
-	bufferDescriptor.range = VK_WHOLE_SIZE;
+	bufferDescriptor.range = sizeof(UniformBufferObject);//VK_WHOLE_SIZE;
 	bufferDescriptor.offset = 0;
 
 	VkWriteDescriptorSet resultImageWrite{};
@@ -713,7 +713,7 @@ void RtVulkanApp::buildCommandBuffers()
 		/*
 			Dispatch the ray tracing commands
 		*/
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineRT);
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipeline);
 		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, 1, &descriptorSets[0], 0, 0);
 
 		pfnCmdTraceRaysKHR(
@@ -839,7 +839,7 @@ void RtVulkanApp::initVulkan() {
 
 void RtVulkanApp::bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline)
 {
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineRT);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipeline);
 }
 
 void RtVulkanApp::createTransformMatrixBuffer() {

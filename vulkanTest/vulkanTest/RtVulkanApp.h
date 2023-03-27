@@ -56,13 +56,13 @@ public:
 	VkBuffer transformMatrixBuffer;
 	VkDeviceMemory transformMatrixMemory;
 
-	VkPipeline            pipelineRT;
+	//VkPipeline            pipelineRT;
 	//VkPipelineLayout      pipelineLayoutRT;
-	VkDescriptorSet       descriptorSetRT;
-	VkDescriptorSetLayout descriptorSetLayoutRT;
+	//VkDescriptorSet       descriptorSetRT;
+	//VkDescriptorSetLayout descriptorSetLayoutRT;
 
 	StorageImage storageImage;
-	Buffer ubo;
+	//Buffer ubo;
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
 
 	// Pointer functions 
