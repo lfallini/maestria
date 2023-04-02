@@ -486,15 +486,19 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
+	camera.type = CameraType::LookAt;
+	camera.set_perspective(60.0f, static_cast<float>(appSettings.width) / static_cast<float>(appSettings.height), 0.1f, 512.0f);
+	camera.set_rotation(glm::vec3(0.0f, 0.0f, 0.0f));
+	camera.set_translation(glm::vec3(0.0f, 0.0f, -2.5f));
+
 	UniformBufferObject ubo{};
 	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	/*
 		https://github.com/KhronosGroup/Vulkan-Samples/blob/51eefabb579b37bafde2f98a7c7c6fe09cf6b7b8/samples/extensions/raytracing_basic/raytracing_basic.cpp#L807
 	*/
-	ubo.view = glm::inverse(glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
-	ubo.proj = glm::inverse(glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f));
-	//ubo.proj[1][1] *= -1;
+	ubo.proj_inverse = glm::inverse(camera.matrices.perspective);
+	ubo.view_inverse = glm::inverse(camera.matrices.view);
 
 	memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
@@ -616,7 +620,7 @@ void VulkanApp::createVertexBuffer() {
 	memcpy(data, vertices.data(), (size_t)bufferSize);
 	vkUnmapMemory(device, stagingBufferMemory);
 
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, vertexBuffer, vertexBufferMemory);
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, vertexBuffer, vertexBufferMemory);
 
 	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 
@@ -755,7 +759,7 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-	//vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 

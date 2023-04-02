@@ -24,15 +24,9 @@
 #include <array>
 #include <unordered_map>
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/hash.hpp>
+#include <chrono>
+#include "Camera.h"
 
-#include <chrono>*/
 
 const std::string MODEL_PATH = "./viking_room.obj";
 const std::string TEXTURE_PATH = "./viking_room.png";
@@ -116,8 +110,8 @@ namespace std {
 
 struct UniformBufferObject {
 	//alignas(16) glm::mat4 model;
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
+	alignas(16) glm::mat4 view_inverse;
+	alignas(16) glm::mat4 proj_inverse;
 };
 
 #ifdef NDEBUG
@@ -220,6 +214,8 @@ protected:
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
+
+	Camera camera;
 
 	uint32_t currentFrame = 0;
 	bool framebufferResized = false;

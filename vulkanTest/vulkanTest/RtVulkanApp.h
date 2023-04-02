@@ -85,6 +85,7 @@ public:
 	void modelToVkGeometryKHR();
 	void createStorageImage();
 	void createBottomLevelAS();
+	void updateInstancesBuffer(VkAccelerationStructureInstanceKHR accelerationStructureInstance, VkBuffer instancesBuffer);
 	void createTopLevelAS();
 	void createRayTracingPipeline();
 	void createShaderBindingTable();
