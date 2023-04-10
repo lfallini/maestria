@@ -94,6 +94,7 @@ void VulkanApp::initVulkan() {
 }
 
 void VulkanApp::loadModel() {
+
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -1112,6 +1113,69 @@ void VulkanApp::createSwapChain() {
 
 	swapChainImageFormat = surfaceFormat.format;
 	swapChainExtent = extent;
+}
+
+void VulkanApp::createMaterialBuffer()
+{
+	// Materials
+	Material mat_red = { {1, 0, 0}, {1, 1, 1}, 0.0f };
+	Material mat_green = { {0, 1, 0}, {1, 1, 1}, 0.0f };
+	Material mat_blue = { {0, 0, 1}, {1, 1, 1}, 0.0f };
+	Material mat_yellow = { {1, 1, 0}, {1, 1, 1}, 0.0f };
+	Material mat_cyan = { {0, 1, 1}, {1, 1, 1}, 0.0f };
+	Material mat_magenta = { {1, 0, 1}, {1, 1, 1}, 0.0f };
+	Material mat_grey = { {0.7f, 0.7f, 0.7f}, {0.9f, 0.9f, 0.9f}, 0.1f };        // Slightly reflective
+	Material mat_mirror = { {0.3f, 0.9f, 1.0f}, {0.9f, 0.9f, 0.9f}, 0.9f };        // Mirror Slightly blue
+
+	std::vector<Material> materials = { mat_yellow };
+	int32_t matIndexSize = indices.size() / 3;
+	auto matIndexBufferSize = (matIndexSize) * sizeof(int32_t);
+	auto matBufferSize = materials.size() * sizeof(Material);
+
+	// Making sure the material triangle index don't exceed the number of materials
+	auto maxIndex = static_cast<int32_t>(materials.size() - 1);
+	std::vector<int32_t> matIndex(matIndexSize);
+	for (auto i = 0; i < matIndexSize; i++)
+	{
+		// TODO change "0".
+		matIndex[i] = std::min(maxIndex, 0);
+	}
+
+	// Create Material index buffer
+	VkDeviceSize bufferSize = matIndexSize;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, matIndexBuffer.buffer, matIndexBuffer.memory);
+	copyBuffer(stagingBuffer, matIndexBuffer.buffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+	// Create Material color buffer
+	bufferSize = materials.size() * sizeof(Material);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, matColorBuffer.buffer, matColorBuffer.memory);
+	copyBuffer(stagingBuffer, matColorBuffer.buffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+
 }
 
 void VulkanApp::createSurface() {

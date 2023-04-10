@@ -60,6 +60,7 @@ struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
+	glm::vec3 normal;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
@@ -95,6 +96,17 @@ struct Vertex {
 		return pos == other.pos && color == other.color && texCoord == other.texCoord;
 	}
 
+};
+
+struct Material {
+	glm::vec3 diffuse{ 0.7f };
+	glm::vec3 specular{ 0.7f };
+	float shininess{ 0.f };
+};
+
+struct Buffer {
+	VkBuffer buffer;
+	VkDeviceMemory memory;
 };
 
 namespace std {
@@ -188,12 +200,19 @@ protected:
 	VkRenderPass renderPass;
 	VkPipeline graphicsPipeline;
 
+	// Vertex buffer
 	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
+
+	// Index buffer
+	std::vector<uint32_t> indices;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
+	
+	// Material buffer
+	Buffer matColorBuffer;
+	Buffer matIndexBuffer;
 
 	VkImage textureImage;
 	VkDeviceMemory textureImageMemory;
@@ -267,6 +286,7 @@ protected:
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags memoryFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	void createVertexBuffer();
+	void createMaterialBuffer();
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
