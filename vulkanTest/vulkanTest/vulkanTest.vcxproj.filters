@@ -35,12 +35,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shader.vert">
-      <Filter>Archivos de recursos\shaders</Filter>
-    </None>
-    <None Include="shader.frag">
-      <Filter>Archivos de recursos\shaders</Filter>
-    </None>
     <None Include="cpp.hint" />
     <None Include="shaders\closesthit.rchit">
       <Filter>Archivos de recursos\shaders</Filter>
@@ -49,6 +43,9 @@
       <Filter>Archivos de recursos\shaders</Filter>
     </None>
     <None Include="shaders\raygen.rgen">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\missShadow.rmiss">
       <Filter>Archivos de recursos\shaders</Filter>
     </None>
   </ItemGroup>

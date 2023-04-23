@@ -27,11 +27,6 @@ struct AccelerationStructure {
 	VkDeviceMemory memory;
 };
 
-struct Buffer {
-	VkBuffer buffer;
-	VkDeviceMemory memory;
-};
-
 struct StorageImage
 {
 	VkDeviceMemory memory;
@@ -56,10 +51,7 @@ public:
 	VkBuffer transformMatrixBuffer;
 	VkDeviceMemory transformMatrixMemory;
 
-	//VkPipeline            pipelineRT;
-	//VkPipelineLayout      pipelineLayoutRT;
-	//VkDescriptorSet       descriptorSetRT;
-	//VkDescriptorSetLayout descriptorSetLayoutRT;
+	Buffer sceneDesc;
 
 	StorageImage storageImage;
 	//Buffer ubo;
@@ -78,10 +70,12 @@ public:
 	// Binding table buffers
 	Buffer raygenShaderBindingTable;
 	Buffer missShaderBindingTable;
+	Buffer missShadowShaderBindingTable;
 	Buffer hitShaderBindingTable;
 
 	void initPointerFunctions();
 	void getPhysicalDeviceRaytracingProperties();
+	void createBufferReferences();
 	void modelToVkGeometryKHR();
 	void createStorageImage();
 	void createBottomLevelAS();

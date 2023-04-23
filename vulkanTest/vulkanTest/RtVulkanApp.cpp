@@ -71,14 +71,6 @@ void RtVulkanApp::createBottomLevelAS()
 {
 	// Setup vertices and indices for a single triangle
 
-	vertices = {
-		{{1.0f, 1.0f, 0.0f}},
-		{{-1.0f, 1.0f, 0.0f}},
-		{{0.0f, -1.0f, 0.0f}} };
-	indices = { 0, 1, 2 };
-
-	createVertexBuffer();
-	createIndexBuffer();
 	createTransformMatrixBuffer();
 
 	VkDeviceAddress indexBufferAddress = getBufferDeviceAddress(device, indexBuffer);
@@ -93,7 +85,7 @@ void RtVulkanApp::createBottomLevelAS()
 	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vertexBufferAddress;
-	accelerationStructureGeometry.geometry.triangles.maxVertex = 3;
+	accelerationStructureGeometry.geometry.triangles.maxVertex = vertices.size();
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = indexBufferAddress;
@@ -107,7 +99,8 @@ void RtVulkanApp::createBottomLevelAS()
 	accelerationStructureBuildGeometryInfo.geometryCount = 1;
 	accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 
-	uint32_t primitiveCount = 1;
+	// number of triangles
+	uint32_t primitiveCount = indices.size() / 3;
 	
 	VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
 	accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
@@ -151,7 +144,7 @@ void RtVulkanApp::createBottomLevelAS()
 	accelerationBuildGeometryInfo.scratchData.deviceAddress = getBufferDeviceAddress(device, scratchBuffer);
 
 	VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo;
-	accelerationStructureBuildRangeInfo.primitiveCount = 1;
+	accelerationStructureBuildRangeInfo.primitiveCount = primitiveCount;
 	accelerationStructureBuildRangeInfo.primitiveOffset = 0;
 	accelerationStructureBuildRangeInfo.firstVertex = 0;
 	accelerationStructureBuildRangeInfo.transformOffset = 0;
@@ -313,7 +306,7 @@ void RtVulkanApp::createRayTracingPipeline()
 	accelerationStructureLayoutBinding.binding = 0;
 	accelerationStructureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 	accelerationStructureLayoutBinding.descriptorCount = 1;
-	accelerationStructureLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+	accelerationStructureLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
 	VkDescriptorSetLayoutBinding resultImageLayoutBinding{};
 	resultImageLayoutBinding.binding = 1;
@@ -327,10 +320,19 @@ void RtVulkanApp::createRayTracingPipeline()
 	uniformBufferBinding.descriptorCount = 1;
 	uniformBufferBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
+	// Scene description
+	VkDescriptorSetLayoutBinding sceneBufferBinding{};
+	sceneBufferBinding.binding = 3;
+	sceneBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	sceneBufferBinding.descriptorCount = 1;
+	sceneBufferBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
 	std::vector<VkDescriptorSetLayoutBinding> bindings = {
 		accelerationStructureLayoutBinding,
 		resultImageLayoutBinding,
-		uniformBufferBinding };
+		uniformBufferBinding,
+		sceneBufferBinding
+	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -381,6 +383,18 @@ void RtVulkanApp::createRayTracingPipeline()
 		shaderGroups.push_back(missGroupCi);
 	}
 
+	// Ray miss (shadow) group
+	{
+		shaderStages.push_back(loadShader("shaders/missShadow.spv", VK_SHADER_STAGE_MISS_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR miss_group_ci{ VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR };
+		miss_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		miss_group_ci.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+		miss_group_ci.closestHitShader = VK_SHADER_UNUSED_KHR;
+		miss_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
+		miss_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		shaderGroups.push_back(miss_group_ci);
+	}
+
 	// Ray closest hit group
 	{
 		shaderStages.push_back(loadShader("shaders/closesthit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
@@ -421,31 +435,39 @@ inline uint32_t alignedSize(uint32_t value, uint32_t alignment)
 void RtVulkanApp::createShaderBindingTable()
 {
 	/*
-	Create the Shader Binding Tables that connects the ray tracing pipelines' programs and the top-level acceleration structure
+		Create the Shader Binding Tables that connects the ray tracing pipelines' programs and the  top-level acceleration structure
 
-	SBT Layout used in this sample:
+		SBT Layout used in this sample:
 
-		/-----------\
-		| raygen    |
-		|-----------|
-		| miss      |
-		|-----------|
-		| hit       |
-		\-----------/
+			/-------------\
+			| raygen      |
+			|-------------|
+			| miss        |
+			|-------------|
+			| miss shadow |
+			|-------------|
+			| hit         |
+			\-------------/
 	*/
+
+	// Index position of the groups in the generated ray tracing pipeline
+	// To be generic, this should be pass in parameters
+	std::vector<uint32_t> rgenIndex{ 0 };
+	std::vector<uint32_t> missIndex{ 1, 2 };
+	std::vector<uint32_t> hitIndex{ 3 };
 
 	const uint32_t           handleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
 	const uint32_t           handleSizeAligned = alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize, rayTracingPipelineProperties.shaderGroupHandleAlignment);
 	const uint32_t           handleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
-	const uint32_t           groupCount = static_cast<uint32_t>(shaderGroups.size());
+	const uint32_t           groupCount = static_cast<uint32_t>(rgenIndex.size() + missIndex.size() + hitIndex.size());
 	const uint32_t           sbtSize = groupCount * handleSizeAligned;
 	const VkBufferUsageFlags sbtBufferUsageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
 	
 	// Create binding table buffers for each shader type
-	createBuffer(handleSize, sbtBufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, raygenShaderBindingTable.buffer, raygenShaderBindingTable.memory);
-	createBuffer(handleSize, sbtBufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, missShaderBindingTable.buffer, missShaderBindingTable.memory);
-	createBuffer(handleSize, sbtBufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, hitShaderBindingTable.buffer, hitShaderBindingTable.memory);
+	createBuffer(handleSizeAligned * rgenIndex.size(), sbtBufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, raygenShaderBindingTable.buffer, raygenShaderBindingTable.memory);
+	createBuffer(handleSizeAligned * missIndex.size(), sbtBufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, missShaderBindingTable.buffer, missShaderBindingTable.memory);
+	createBuffer(handleSizeAligned * hitIndex.size(), sbtBufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, hitShaderBindingTable.buffer, hitShaderBindingTable.memory);
 
 	// Copy the pipeline's shader handles into a host buffer
 	std::vector<uint8_t> shaderHandleStorage(sbtSize);
@@ -456,16 +478,16 @@ void RtVulkanApp::createShaderBindingTable()
 	// Copy the shader handles from the host buffer to the binding tables
 
 	void* data;
-	vkMapMemory(device, raygenShaderBindingTable.memory, 0, handleSize, 0, &data);
-	memcpy(data, shaderHandleStorage.data(), (size_t)handleSize);
+	vkMapMemory(device, raygenShaderBindingTable.memory, 0, handleSizeAligned * rgenIndex.size(), 0, &data);
+	memcpy(data, shaderHandleStorage.data(), (size_t)handleSizeAligned);
 	vkUnmapMemory(device, raygenShaderBindingTable.memory);
 
-	vkMapMemory(device, missShaderBindingTable.memory, 0, handleSize, 0, &data);
-	memcpy(data, shaderHandleStorage.data() + handleSizeAligned, (size_t)handleSize);
+	vkMapMemory(device, missShaderBindingTable.memory, 0, 2 * handleSizeAligned, 0, &data);
+	memcpy(data, shaderHandleStorage.data() + handleSizeAligned, (size_t)handleSizeAligned * 2);
 	vkUnmapMemory(device, missShaderBindingTable.memory);
 
-	vkMapMemory(device, hitShaderBindingTable.memory, 0, handleSize, 0, &data);
-	memcpy(data, shaderHandleStorage.data() + (2 * handleSizeAligned), (size_t)handleSize);
+	vkMapMemory(device, hitShaderBindingTable.memory, 0, handleSizeAligned, 0, &data);
+	memcpy(data, shaderHandleStorage.data() + (/*TODO: 3 = 1 (raygen table) + 2 (miss table) */3 * handleSizeAligned), (size_t)handleSizeAligned);
 	vkUnmapMemory(device, hitShaderBindingTable.memory);
 
 }
@@ -475,7 +497,9 @@ void RtVulkanApp::createDescriptorSets()
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
 		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1} };
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}
+	};
 
 	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
 	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -522,6 +546,26 @@ void RtVulkanApp::createDescriptorSets()
 	bufferDescriptor.range = sizeof(UniformBufferObject);//VK_WHOLE_SIZE;
 	bufferDescriptor.offset = 0;
 
+	VkDescriptorBufferInfo vertexBufferDescriptor{};
+	vertexBufferDescriptor.buffer = vertexBuffer;
+	vertexBufferDescriptor.range = VK_WHOLE_SIZE;
+	vertexBufferDescriptor.offset = 0;
+
+	VkDescriptorBufferInfo indexBufferDescriptor{};
+	indexBufferDescriptor.buffer = indexBuffer;
+	indexBufferDescriptor.range = VK_WHOLE_SIZE;
+	indexBufferDescriptor.offset = 0;
+
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo.imageView = textureImageView;
+	imageInfo.sampler = textureSampler;
+
+	VkDescriptorBufferInfo sceneDescriptor{};
+	sceneDescriptor.buffer = sceneDesc.buffer;
+	sceneDescriptor.range = sizeof(ObjBuffers);
+	sceneDescriptor.offset = 0;
+
 	VkWriteDescriptorSet resultImageWrite{};
 	resultImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	resultImageWrite.dstSet = descriptorSets[0];
@@ -538,10 +582,21 @@ void RtVulkanApp::createDescriptorSets()
 	uniformBufferWrite.pBufferInfo = &bufferDescriptor;
 	uniformBufferWrite.descriptorCount = 1;
 
+	VkWriteDescriptorSet sceneBufferWrite{};
+	sceneBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	sceneBufferWrite.dstSet = descriptorSets[0];
+	sceneBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	sceneBufferWrite.dstBinding = 3;
+	sceneBufferWrite.pBufferInfo = &sceneDescriptor;
+	sceneBufferWrite.descriptorCount = 1;
+
+
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
 		accelerationStructureWrite,
 		resultImageWrite,
-		uniformBufferWrite };
+		uniformBufferWrite,
+		sceneBufferWrite
+	};
 	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, VK_NULL_HANDLE);
 }
 
@@ -719,7 +774,7 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex)
 		VkStridedDeviceAddressRegionKHR missShaderSbtEntry{};
 		missShaderSbtEntry.deviceAddress = getBufferDeviceAddress(device, missShaderBindingTable.buffer);
 		missShaderSbtEntry.stride = handleSizeAligned;
-		missShaderSbtEntry.size = handleSizeAligned;
+		missShaderSbtEntry.size = handleSizeAligned * 2;
 
 		VkStridedDeviceAddressRegionKHR hitShaderSbtEntry{};
 		hitShaderSbtEntry.deviceAddress = getBufferDeviceAddress(device, hitShaderBindingTable.buffer);
@@ -821,6 +876,7 @@ void RtVulkanApp::initVulkan() {
 	createSurface();
 	pickPhysicalDevice();
 	createLogicalDevice();
+	initPointerFunctions();
 	createSwapChain();
 	createImageViews();
 	createRenderPass();
@@ -832,12 +888,13 @@ void RtVulkanApp::initVulkan() {
 	//createTextureImage();
 	//createTextureImageView();
 	//createTextureSampler();
-	//loadModel();
-	//createVertexBuffer();
-	//createIndexBuffer();
+	loadModel();
+	createVertexBuffer();
+	createIndexBuffer();
+	createMaterialBuffer();
+	createBufferReferences();
 
 	/* Ray tracing setup */
-	initPointerFunctions();
 	getPhysicalDeviceRaytracingProperties();
 	createStorageImage();
 	createBottomLevelAS();
@@ -862,7 +919,10 @@ void RtVulkanApp::bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipelin
 
 void RtVulkanApp::drawFrame()
 {
-	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+	if (vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX) == VK_TIMEOUT) {
+		throw std::runtime_error("timeout!");
+	}
 
 	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -987,3 +1047,29 @@ void RtVulkanApp::getPhysicalDeviceRaytracingProperties()
 	rayTracingPipelineProperties = rtProperties;
 }
 
+void RtVulkanApp::createBufferReferences() {
+
+	objBuffers.vertices = getBufferDeviceAddress(device, vertexBuffer);
+	objBuffers.indices = getBufferDeviceAddress(device, indexBuffer);
+	objBuffers.materials = getBufferDeviceAddress(device, matColorBuffer.buffer);
+	objBuffers.materialIndices = getBufferDeviceAddress(device, matIndexBuffer.buffer);
+
+	VkDeviceSize bufferSize = sizeof(ObjBuffers);
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, &objBuffers, (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, sceneDesc.buffer, sceneDesc.memory);
+
+	copyBuffer(stagingBuffer, sceneDesc.buffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+}

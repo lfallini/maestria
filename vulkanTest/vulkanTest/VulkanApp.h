@@ -24,11 +24,14 @@
 #include <array>
 #include <unordered_map>
 
+#include <iomanip>
+#include <cstring>
+
 #include <chrono>
 #include "Camera.h"
 
 
-const std::string MODEL_PATH = "./viking_room.obj";
+const std::string MODEL_PATH = "./models/plane.obj";
 const std::string TEXTURE_PATH = "./viking_room.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 1;
@@ -54,13 +57,19 @@ const std::vector<const char*> deviceExtensions = {
 
 	// Required by VK_KHR_spirv_1_4
 	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+	
+	VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
+	VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
+	// required by GL_EXT_debug_printf
+	VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
+
 };
 
 struct Vertex {
 	glm::vec3 pos;
+	glm::vec3 normal;
 	glm::vec3 color;
 	glm::vec2 texCoord;
-	glm::vec3 normal;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
@@ -79,13 +88,18 @@ struct Vertex {
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 1;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, normal);
+
 		attributeDescriptions[1].binding = 0;
-		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].location = 2;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
 
 		attributeDescriptions[2].binding = 0;
-		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].location = 3;
 		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
@@ -93,7 +107,7 @@ struct Vertex {
 	}
 
 	bool operator==(const Vertex& other) const {
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+		return pos == other.pos && normal == other.normal && color == other.color && texCoord == other.texCoord;
 	}
 
 };
@@ -107,6 +121,14 @@ struct Material {
 struct Buffer {
 	VkBuffer buffer;
 	VkDeviceMemory memory;
+};
+
+struct ObjBuffers
+{
+	VkDeviceAddress vertices;
+	VkDeviceAddress indices;
+	VkDeviceAddress materials;
+	VkDeviceAddress materialIndices;
 };
 
 namespace std {
@@ -214,6 +236,9 @@ protected:
 	Buffer matColorBuffer;
 	Buffer matIndexBuffer;
 
+	// TODO: convert to std::<vector>.
+	ObjBuffers objBuffers;
+
 	VkImage textureImage;
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
@@ -287,6 +312,7 @@ protected:
 
 	void createVertexBuffer();
 	void createMaterialBuffer();
+	void createBufferReferences();
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 

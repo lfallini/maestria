@@ -25,7 +25,7 @@ void VulkanApp::createInstance() {
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.pEngineName = "No Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_1;
+	appInfo.apiVersion = VK_API_VERSION_1_2;
 
 	VkInstanceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -116,12 +116,22 @@ void VulkanApp::loadModel() {
 				attrib.vertices[3 * index.vertex_index + 2]
 			};
 
-			vertex.texCoord = {
-				attrib.texcoords[2 * index.texcoord_index + 0],
-				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+			vertex.normal = {
+				attrib.normals[3 * index.normal_index + 0],
+				attrib.normals[3 * index.normal_index + 1],
+				attrib.normals[3 * index.normal_index + 2]
+				//0,-1,0
 			};
 
-			vertex.color = { 1.0f, 1.0f, 1.0f };
+			vertex.texCoord = {
+				/*
+				attrib.texcoords[2 * index.texcoord_index + 0],
+				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+				*/
+				0,0
+			};
+
+			vertex.color = { 0.0f, 0.0f, 0.0f };
 
 			if (uniqueVertices.count(vertex) == 0) {
 				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
@@ -489,8 +499,9 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
 
 	camera.type = CameraType::LookAt;
 	camera.set_perspective(60.0f, static_cast<float>(appSettings.width) / static_cast<float>(appSettings.height), 0.1f, 512.0f);
-	camera.set_rotation(glm::vec3(0.0f, 0.0f, 0.0f));
-	camera.set_translation(glm::vec3(0.0f, 0.0f, -2.5f));
+	camera.set_rotation(glm::vec3(30.0, 90.0f, 0.0f));
+	camera.set_translation(glm::vec3(0.0f, 0.0f, -1.0f));
+	camera.rotate(glm::vec3(0, time * 45.0f, 0));
 
 	UniformBufferObject ubo{};
 	//ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1127,7 +1138,7 @@ void VulkanApp::createMaterialBuffer()
 	Material mat_grey = { {0.7f, 0.7f, 0.7f}, {0.9f, 0.9f, 0.9f}, 0.1f };        // Slightly reflective
 	Material mat_mirror = { {0.3f, 0.9f, 1.0f}, {0.9f, 0.9f, 0.9f}, 0.9f };        // Mirror Slightly blue
 
-	std::vector<Material> materials = { mat_yellow };
+	std::vector<Material> materials = { mat_red, mat_green, mat_blue, mat_yellow, mat_cyan };
 	int32_t matIndexSize = indices.size() / 3;
 	auto matIndexBufferSize = (matIndexSize) * sizeof(int32_t);
 	auto matBufferSize = materials.size() * sizeof(Material);
@@ -1142,7 +1153,7 @@ void VulkanApp::createMaterialBuffer()
 	}
 
 	// Create Material index buffer
-	VkDeviceSize bufferSize = matIndexSize;
+	VkDeviceSize bufferSize = matIndexSize * sizeof(int32_t);
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -1151,7 +1162,7 @@ void VulkanApp::createMaterialBuffer()
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize);
+	memcpy(data, matIndex.data(), (size_t)bufferSize);
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, matIndexBuffer.buffer, matIndexBuffer.memory);
@@ -1165,9 +1176,8 @@ void VulkanApp::createMaterialBuffer()
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0, stagingBuffer, stagingBufferMemory);
 
-	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize);
+	memcpy(data, reinterpret_cast<const uint8_t*>(materials.data()), (size_t)bufferSize);
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT, matColorBuffer.buffer, matColorBuffer.memory);
@@ -1202,18 +1212,21 @@ void VulkanApp::createLogicalDevice() {
 
 	VkPhysicalDeviceFeatures deviceFeatures{};
 	deviceFeatures.samplerAnisotropy = VK_TRUE;
+	deviceFeatures.shaderInt64 = VK_TRUE;
 	
 	// Ray tracing features
+	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+	VkPhysicalDeviceVulkan12Features features12{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+	VkPhysicalDeviceVulkan11Features features11{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
-	VkPhysicalDeviceBufferDeviceAddressFeaturesKHR deviceAddressFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES  };
-	accelFeature.pNext = &rtPipelineFeature;
-	rtPipelineFeature.pNext = &deviceAddressFeature;
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
 
+	features2.pNext = &features12;
+	features12.pNext = &features11;
+	features11.pNext = &accelFeature;
+	accelFeature.pNext = &rtPipelineFeatures;
 	
 	// Requesting ray tracing features
-	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-	features2.pNext = &accelFeature;
 	vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
 
 	VkDeviceCreateInfo createInfo{};
@@ -1221,7 +1234,7 @@ void VulkanApp::createLogicalDevice() {
 	createInfo.pQueueCreateInfos = queueCreateInfos.data();
 	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 
-	createInfo.pEnabledFeatures = &deviceFeatures;
+	createInfo.pEnabledFeatures = nullptr;
 
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -1233,7 +1246,7 @@ void VulkanApp::createLogicalDevice() {
 	else {
 		createInfo.enabledLayerCount = 0;
 	}
-	createInfo.pNext = &accelFeature;
+	createInfo.pNext = &features2;
 
 	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create logical device!");
@@ -1282,7 +1295,7 @@ bool VulkanApp::isDeviceSuitable(VkPhysicalDevice device) {
 	VkPhysicalDeviceFeatures supportedFeatures;
 	vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
-	return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+	return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy && supportedFeatures.shaderInt64;
 }
 
 bool VulkanApp::checkDeviceExtensionSupport(VkPhysicalDevice device) {
