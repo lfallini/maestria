@@ -43,7 +43,9 @@ hitAttributeEXT vec3 attribs;
 struct WaveFrontMaterial
 {
 	vec3  diffuse;
+	float pad;
 	vec3  specular;
+	float padding;
 	float shininess;
 	float padding1;
 	float padding2;
@@ -76,19 +78,19 @@ layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout(set = 0, binding = 3)    buffer _scene_desc { ObjBuffers i[]; } scene_desc;
 // clang-format on
 
-//vec3 computeSpecular(WaveFrontMaterial mat, vec3 V, vec3 L, vec3 N)
-//{
-//	const float kPi        = 3.14159265;
-//	const float kShininess = max(mat.shininess, 4.0);
-//
-//	// Specular
-//	const float kEnergyConservation = (2.0 + kShininess) / (2.0 * kPi);
-//	V                               = normalize(-V);
-//	vec3  R                         = reflect(-L, N);
-//	float specular                  = kEnergyConservation * pow(max(dot(V, R), 0.0), kShininess);
-//
-//	return vec3(mat.specular * specular);
-//}
+vec3 computeSpecular(WaveFrontMaterial mat, vec3 V, vec3 L, vec3 N)
+{
+	const float kPi        = 3.14159265;
+	const float kShininess = max(mat.shininess, 4.0);
+
+	// Specular
+	const float kEnergyConservation = (2.0 + kShininess) / (2.0 * kPi);
+	V                               = normalize(-V);
+	vec3  R                         = reflect(-L, N);
+	float specular                  = kEnergyConservation * pow(max(dot(V, R), 0.0), kShininess);
+
+	return vec3(mat.specular * specular);
+}
 
 void main()
 {
@@ -129,7 +131,7 @@ void main()
 	vec3 P = v0.pos.xyz * barycentrics.x + v1.pos.xyz * barycentrics.y + v2.pos.xyz * barycentrics.z;
 	P      = vec3(gl_ObjectToWorldEXT * vec4(P, 1.0));        // Transforming the position to world space
 
-	// Hardocded (to) light direction
+	// Hardcoded (to) light direction
 	vec3 L = normalize(vec3(-1, 1, -1));
 
 	float NdotL = dot(N, L);
@@ -138,42 +140,41 @@ void main()
 	vec3 diffuse  = mat.diffuse * max(NdotL, 0.1);
 	vec3 specular = vec3(0);
 
-//	if (NdotL < 0)
-//		diffuse = vec3(1, 1, 1);
 	// Tracing shadow ray only if the light is visible from the surface
-//	if (NdotL > 0)
-//	{
-//		float tMin   = 0.001;
-//		float tMax   = 1e32;        // infinite
-//		vec3  origin = P;
-//		vec3  rayDir = L;
-//		uint  flags  = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
-//		isShadowed   = true;
-//
-//		traceRayEXT(topLevelAS,        // acceleration structure
-//		            flags,             // rayFlags
-//		            0xFF,              // cullMask
-//		            0,                 // sbtRecordOffset
-//		            0,                 // sbtRecordStride
-//		            1,                 // missIndex
-//		            origin,            // ray origin
-//		            tMin,              // ray min range
-//		            rayDir,            // ray direction
-//		            tMax,              // ray max range
-//		            1                  // payload (location = 1)
-//		);
-//
-//		if (isShadowed)
-//			diffuse *= 0.3;
-//		else
-//			// Add specular only if not in shadow
-//			specular = computeSpecular(mat, gl_WorldRayDirectionEXT, L, N);
-//	}
-	prd.radiance = (diffuse + specular);// * (1 - mat.shininess) * prd.attenuation;
+	if (NdotL > 0)
+	{
+		// This is being EXECUTED!!
+		float tMin   = 0.001;
+		float tMax   = 1e32;
+		vec3  origin = P;
+		vec3  rayDir = L;
+		uint  flags  = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+		isShadowed   = true;
+
+		traceRayEXT(topLevelAS,        // acceleration structure
+		            flags,             // rayFlags
+		            0xFF,              // cullMask
+		            0,                 // sbtRecordOffset
+		            0,                 // sbtRecordStride
+		            1,                 // missIndex
+		            origin,            // ray origin
+		            tMin,              // ray min range
+		            rayDir,            // ray direction
+		            tMax,              // ray max range
+		            1                  // payload (location = 1)
+		);
+
+		if (isShadowed)
+			diffuse *= 0.3;
+		else
+			// Add specular only if not in shadow
+			specular = computeSpecular(mat, gl_WorldRayDirectionEXT, L, N);
+	}
+	prd.radiance = (diffuse + specular) * (1 - mat.shininess) * prd.attenuation;
 
 	// Reflect
 	vec3 rayDir = reflect(gl_WorldRayDirectionEXT, N);
-	//prd.attenuation *= vec3(mat.shininess);
+	prd.attenuation *= vec3(mat.shininess);
 	prd.rayOrigin = P;
 	prd.rayDir    = rayDir;
 }

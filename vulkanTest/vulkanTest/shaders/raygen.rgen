@@ -58,19 +58,21 @@ void main()
 
 	vec3 hitValue = vec3(0);
 
-	for (int depth = 0; depth < 1; depth++)
+	for (int depth = 0; depth < 64; depth++)
 	{
-		traceRayEXT(topLevelAS, 
-					gl_RayFlagsOpaqueEXT,
-					0xff,
-					0,
-					0,
-					0,
-					prd.rayOrigin,
-					tmin,
-					prd.rayDir,
-					tmax,
-					0);
+
+		traceRayEXT(topLevelAS, // acceleration structure
+		    gl_RayFlagsOpaqueEXT, // rayFlags
+		    0xFF,              // cullMask
+		    0,                 // sbtRecordOffset
+		    0,                 // sbtRecordStride
+		    0,                 // missIndex
+		    prd.rayOrigin,     // ray origin
+		    tmin,              // ray min range
+		    prd.rayDir,        // ray direction
+		    tmax,              // ray max range
+		    0                  // payload (location = 0)
+		);
 
 		hitValue += prd.radiance;
 		if (prd.done == 1 || length(prd.attenuation) < 0.1)

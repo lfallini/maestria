@@ -10,142 +10,141 @@
 #include <stb_image.h>
 #include <tiny_obj_loader.h>
 
-#include <iostream>
-#include <vector>
-#include <limits>
 #include <algorithm>
-#include <cstdint>
-#include <stdexcept>
-#include <cstdlib>
-#include <map>
-#include <set>
-#include <optional>
-#include <fstream>
 #include <array>
+#include <cstdint>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <optional>
+#include <set>
+#include <stdexcept>
 #include <unordered_map>
+#include <vector>
 
-#include <iomanip>
 #include <cstring>
+#include <iomanip>
 
-#include <chrono>
 #include "Camera.h"
+#include <chrono>
 
-
-const std::string MODEL_PATH = "./models/plane.obj";
+const std::string BASE_PATH = "./models/";
+const std::string MODEL_PATH = "./models/cube.obj";
 const std::string TEXTURE_PATH = "./viking_room.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 1;
 
-const std::vector<const char*> validationLayers = {
-	"VK_LAYER_KHRONOS_validation"
-};
+const std::vector<const char *> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"};
 
-const std::vector<const char*> deviceExtensions = {
-	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+const std::vector<const char *> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 
-	// Ray tracing extensions
-	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+    // Ray tracing extensions
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 
-	// Required by VK_KHR_acceleration_structure
-	VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-	VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+    // Required by VK_KHR_acceleration_structure
+    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
 
-	// Required for VK_KHR_ray_tracing_pipeline
-	VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+    // Required for VK_KHR_ray_tracing_pipeline
+    VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 
-	// Required by VK_KHR_spirv_1_4
-	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
-	
-	VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
-	VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
-	// required by GL_EXT_debug_printf
-	VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
+    // Required by VK_KHR_spirv_1_4
+    VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+
+    VK_KHR_8BIT_STORAGE_EXTENSION_NAME, VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
+    // required by GL_EXT_debug_printf
+    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
 
 };
 
 struct Vertex {
-	glm::vec3 pos;
-	glm::vec3 normal;
-	glm::vec3 color;
-	glm::vec2 texCoord;
+  glm::vec3 pos;
+  glm::vec3 normal;
+  glm::vec3 color;
+  glm::vec2 texCoord;
 
-	static VkVertexInputBindingDescription getBindingDescription() {
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Vertex);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  static VkVertexInputBindingDescription getBindingDescription() {
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		return bindingDescription;
-	}
+    return bindingDescription;
+  }
 
-	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+  static std::array<VkVertexInputAttributeDescription, 3>
+  getAttributeDescriptions() {
+    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 0;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 1;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, normal);
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 1;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex, normal);
 
-		attributeDescriptions[1].binding = 0;
-		attributeDescriptions[1].location = 2;
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+    attributeDescriptions[1].binding = 0;
+    attributeDescriptions[1].location = 2;
+    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].offset = offsetof(Vertex, color);
 
-		attributeDescriptions[2].binding = 0;
-		attributeDescriptions[2].location = 3;
-		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+    attributeDescriptions[2].binding = 0;
+    attributeDescriptions[2].location = 3;
+    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
-		return attributeDescriptions;
-	}
+    return attributeDescriptions;
+  }
 
-	bool operator==(const Vertex& other) const {
-		return pos == other.pos && normal == other.normal && color == other.color && texCoord == other.texCoord;
-	}
-
+  bool operator==(const Vertex &other) const {
+    return pos == other.pos && normal == other.normal && color == other.color &&
+           texCoord == other.texCoord;
+  }
 };
 
 struct Material {
-	glm::vec3 diffuse{ 0.7f };
-	glm::vec3 specular{ 0.7f };
-	float shininess{ 0.f };
+  glm::vec3 diffuse{0.7f};
+  glm::vec3 specular{0.7f};
+  float shininess{0.f};
 };
 
 struct Buffer {
-	VkBuffer buffer;
-	VkDeviceMemory memory;
+  VkBuffer buffer;
+  VkDeviceMemory memory;
 };
 
-struct ObjBuffers
-{
-	VkDeviceAddress vertices;
-	VkDeviceAddress indices;
-	VkDeviceAddress materials;
-	VkDeviceAddress materialIndices;
+struct ObjBuffers {
+  VkDeviceAddress vertices;
+  VkDeviceAddress indices;
+  VkDeviceAddress materials;
+  VkDeviceAddress materialIndices;
 };
 
 namespace std {
-	template<> struct hash<Vertex> {
-		size_t operator()(Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^
-				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-				(hash<glm::vec2>()(vertex.texCoord) << 1);
-		}
-	};
+template <> struct hash<Vertex> {
+  size_t operator()(Vertex const &vertex) const {
+    return ((hash<glm::vec3>()(vertex.pos) ^
+             (hash<glm::vec3>()(vertex.color) << 1)) >>
+            1) ^
+           (hash<glm::vec2>()(vertex.texCoord) << 1);
+  }
+};
 
-}
+} // namespace std
 
 struct UniformBufferObject {
-	//alignas(16) glm::mat4 model;
-	alignas(16) glm::mat4 view_inverse;
-	alignas(16) glm::mat4 proj_inverse;
+  // alignas(16) glm::mat4 model;
+  alignas(16) glm::mat4 view_inverse;
+  alignas(16) glm::mat4 proj_inverse;
 };
 
 #ifdef NDEBUG
@@ -154,213 +153,230 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-static std::vector<char> readFile(const std::string& filename) {
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+static std::vector<char> readFile(const std::string &filename) {
+  std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-	if (!file.is_open()) {
-		throw std::runtime_error("failed to open file!");
-	}
+  if (!file.is_open()) {
+    throw std::runtime_error("failed to open file!");
+  }
 
-	size_t fileSize = (size_t)file.tellg();
-	std::vector<char> buffer(fileSize);
+  size_t fileSize = (size_t)file.tellg();
+  std::vector<char> buffer(fileSize);
 
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-	file.close();
+  file.seekg(0);
+  file.read(buffer.data(), fileSize);
+  file.close();
 
-	return buffer;
+  return buffer;
 }
 
 struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
+  VkSurfaceCapabilitiesKHR capabilities;
+  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<VkPresentModeKHR> presentModes;
 };
 
 struct QueueFamilyIndices {
-	std::optional<uint32_t> graphicsFamily;
-	std::optional<uint32_t> presentFamily;
+  std::optional<uint32_t> graphicsFamily;
+  std::optional<uint32_t> presentFamily;
 
-	bool isComplete() {
-		return graphicsFamily.has_value() && presentFamily.has_value();
-	}
+  bool isComplete() {
+    return graphicsFamily.has_value() && presentFamily.has_value();
+  }
 };
 
 struct AppSettings {
-	uint32_t width = 800, height = 600;
+  uint32_t width = 800, height = 600;
 };
 
-class VulkanApp
-{
+class VulkanApp {
 public:
-	void run() {
-		initWindow();
-		initVulkan();
-		mainLoop();
-		cleanup();
-	};
-	virtual ~VulkanApp() {};
+  void run() {
+    initWindow();
+    initVulkan();
+    mainLoop();
+    cleanup();
+  };
+  virtual ~VulkanApp(){};
 
 protected:
-	AppSettings appSettings;
-	GLFWwindow* window;
-	VkInstance instance;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkDevice device;
-	VkQueue graphicsQueue;
-	VkQueue presentQueue;
-	VkSurfaceKHR surface;
-	VkSwapchainKHR swapChain;
-	std::vector<VkImage> swapChainImages;
-	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
-	std::vector<VkImageView> swapChainImageViews;
-	VkDescriptorSetLayout descriptorSetLayout;
-	VkDescriptorPool descriptorPool;
-	std::vector<VkDescriptorSet> descriptorSets;
-	VkPipelineLayout pipelineLayout;
-	VkRenderPass renderPass;
-	VkPipeline graphicsPipeline;
+  AppSettings appSettings;
+  GLFWwindow *window;
+  VkInstance instance;
+  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+  VkDevice device;
+  VkQueue graphicsQueue;
+  VkQueue presentQueue;
+  VkSurfaceKHR surface;
+  VkSwapchainKHR swapChain;
+  std::vector<VkImage> swapChainImages;
+  VkFormat swapChainImageFormat;
+  VkExtent2D swapChainExtent;
+  std::vector<VkImageView> swapChainImageViews;
+  VkDescriptorSetLayout descriptorSetLayout;
+  VkDescriptorPool descriptorPool;
+  std::vector<VkDescriptorSet> descriptorSets;
+  VkPipelineLayout pipelineLayout;
+  VkRenderPass renderPass;
+  VkPipeline graphicsPipeline;
 
-	// Vertex buffer
-	std::vector<Vertex> vertices;
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
+  // Vertex buffer
+  std::vector<Vertex> vertices;
+  VkBuffer vertexBuffer;
+  VkDeviceMemory vertexBufferMemory;
 
-	// Index buffer
-	std::vector<uint32_t> indices;
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
-	
-	// Material buffer
-	Buffer matColorBuffer;
-	Buffer matIndexBuffer;
+  // Index buffer
+  std::vector<uint32_t> indices;
+  VkBuffer indexBuffer;
+  VkDeviceMemory indexBufferMemory;
 
-	// TODO: convert to std::<vector>.
-	ObjBuffers objBuffers;
+  // Material buffer
+  Buffer matColorBuffer;
+  Buffer matIndexBuffer;
 
-	VkImage textureImage;
-	VkDeviceMemory textureImageMemory;
-	VkImageView textureImageView;
-	VkSampler textureSampler;
+  std::vector<Material> materials;
+  std::vector<int32_t> materialsIndex;
 
-	VkImage depthImage;
-	VkDeviceMemory depthImageMemory;
-	VkImageView depthImageView;
+  // TODO: convert to std::<vector>.
+  ObjBuffers objBuffers;
 
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBuffersMemory;
-	std::vector<void*> uniformBuffersMapped;
+  VkImage textureImage;
+  VkDeviceMemory textureImageMemory;
+  VkImageView textureImageView;
+  VkSampler textureSampler;
 
-	std::vector<VkFramebuffer> swapChainFramebuffers;
-	VkCommandPool commandPool;
-	std::vector<VkCommandBuffer> commandBuffers;
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
-	std::vector<VkFence> inFlightFences;
+  VkImage depthImage;
+  VkDeviceMemory depthImageMemory;
+  VkImageView depthImageView;
 
-	Camera camera;
+  std::vector<VkBuffer> uniformBuffers;
+  std::vector<VkDeviceMemory> uniformBuffersMemory;
+  std::vector<void *> uniformBuffersMapped;
 
-	uint32_t currentFrame = 0;
-	bool framebufferResized = false;
+  std::vector<VkFramebuffer> swapChainFramebuffers;
+  VkCommandPool commandPool;
+  std::vector<VkCommandBuffer> commandBuffers;
+  std::vector<VkSemaphore> imageAvailableSemaphores;
+  std::vector<VkSemaphore> renderFinishedSemaphores;
+  std::vector<VkFence> inFlightFences;
 
-	void initWindow();
+  Camera camera;
 
-	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-		auto app = reinterpret_cast<VulkanApp*>(glfwGetWindowUserPointer(window));
-		app->framebufferResized = true;
-	}
+  uint32_t currentFrame = 0;
+  bool framebufferResized = false;
 
-	void createInstance();
-	void virtual initVulkan();
+  void initWindow();
 
-	void loadModel();
-	bool hasStencilComponent(VkFormat format);
-	VkFormat findDepthFormat();
-	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-	void createDepthResources();
-	void createTextureSampler();
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+  static void framebufferResizeCallback(GLFWwindow *window, int width,
+                                        int height) {
+    auto app = reinterpret_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
+    app->framebufferResized = true;
+  }
 
-	void createTextureImageView();
+  void createInstance();
+  void virtual initVulkan();
 
-	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+  void loadModel();
+  bool hasStencilComponent(VkFormat format);
+  VkFormat findDepthFormat();
+  VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates,
+                               VkImageTiling tiling,
+                               VkFormatFeatureFlags features);
+  void createDepthResources();
+  void createTextureSampler();
+  VkImageView createImageView(VkImage image, VkFormat format,
+                              VkImageAspectFlags aspectFlags);
 
-	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	VkCommandBuffer beginSingleTimeCommands();
+  void createTextureImageView();
 
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+  void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
+                         uint32_t height);
 
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+  void transitionImageLayout(VkImage image, VkFormat format,
+                             VkImageLayout oldLayout, VkImageLayout newLayout);
+  VkCommandBuffer beginSingleTimeCommands();
 
-	void createTextureImage();
+  void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-	void createDescriptorSets();
+  void createImage(uint32_t width, uint32_t height, VkFormat format,
+                   VkImageTiling tiling, VkImageUsageFlags usage,
+                   VkMemoryPropertyFlags properties, VkImage &image,
+                   VkDeviceMemory &imageMemory);
 
-	void createDescriptorPool();
+  void createTextureImage();
 
-	void updateUniformBuffer(uint32_t currentImage);
+  void createDescriptorSets();
 
-	void createUniformBuffers();
+  void createDescriptorPool();
 
-	void createDescriptorSetLayout();
-	void createIndexBuffer();
+  void updateUniformBuffer(uint32_t currentImage);
 
-	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+  void createUniformBuffers();
 
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags memoryFlags, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+  void createDescriptorSetLayout();
+  void createIndexBuffer();
 
-	void createVertexBuffer();
-	void createMaterialBuffer();
-	void createBufferReferences();
+  void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+  void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                    VkMemoryPropertyFlags properties,
+                    VkMemoryAllocateFlags memoryFlags, VkBuffer &buffer,
+                    VkDeviceMemory &bufferMemory);
 
-	void cleanupSwapChain();
-	void recreateSwapChain();
-	void createSyncObjects();
+  void createVertexBuffer();
+  void createMaterialBuffer();
+  void createBufferReferences();
 
-	void createCommandBuffers();
+  uint32_t findMemoryType(uint32_t typeFilter,
+                          VkMemoryPropertyFlags properties);
 
-	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+  void cleanupSwapChain();
+  void recreateSwapChain();
+  void createSyncObjects();
 
-	void createCommandPool();
+  void createCommandBuffers();
 
-	void createFramebuffers();
+  void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
-	void createRenderPass();
+  void createCommandPool();
 
-	void createGraphicsPipeline();
+  void createFramebuffers();
 
-	VkShaderModule createShaderModule(const std::vector<char>& code);
+  void createRenderPass();
 
-	void createImageViews();
+  void createGraphicsPipeline();
 
-	void createSwapChain();
+  VkShaderModule createShaderModule(const std::vector<char> &code);
 
-	void createSurface();
-	void createLogicalDevice();
-	void pickPhysicalDevice();
+  void createImageViews();
 
-	bool isDeviceSuitable(VkPhysicalDevice device);
+  void createSwapChain();
 
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+  void createSurface();
+  void createLogicalDevice();
+  void pickPhysicalDevice();
 
-	void virtual bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline);
+  bool isDeviceSuitable(VkPhysicalDevice device);
 
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+  bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+  void virtual bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline);
 
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+  QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+  SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
-	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+  VkSurfaceFormatKHR chooseSwapSurfaceFormat(
+      const std::vector<VkSurfaceFormatKHR> &availableFormats);
 
-	void mainLoop();
-	void virtual drawFrame();
+  VkPresentModeKHR chooseSwapPresentMode(
+      const std::vector<VkPresentModeKHR> &availablePresentModes);
 
-	void cleanup();
+  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
-	bool checkValidationLayerSupport();
+  void mainLoop();
+  void virtual drawFrame();
+
+  void cleanup();
+
+  bool checkValidationLayerSupport();
 };

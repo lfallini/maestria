@@ -2,7 +2,7 @@
 # File Created: 05.12.2012 22:27:27
 
 newmtl inside
-	Ns 10.0000
+	Ns 0.0000
 	Ni 1.5000
 	d 1.0000
 	Tr 0.0000
@@ -14,7 +14,7 @@ newmtl inside
 	Ke 0.0000 0.0000 0.0000
 
 newmtl case
-	Ns 32.0000
+	Ns 0.0000
 	Ni 1.5000
 	d 1.0000
 	Tr 0.0000
@@ -26,7 +26,7 @@ newmtl case
 	Ke 0.0000 0.0000 0.0000
 
 newmtl backdrop
-	Ns 10.0000
+	Ns 0.0000
 	Ni 1.5000
 	Tr 0  0
 	illum 2
