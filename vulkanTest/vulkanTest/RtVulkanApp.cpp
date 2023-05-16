@@ -341,6 +341,17 @@ void RtVulkanApp::createRayTracingPipeline() {
   pipelineLayoutCreateInfo.setLayoutCount = 1;
   pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
 
+  // setup push constants
+  VkPushConstantRange pushConstant;
+  // this push constant range starts at the beginning
+  pushConstant.offset = 0;
+  // this push constant range takes up the size of a PushConstant struct
+  pushConstant.size = sizeof(PushConstant);
+  // this push constant range is accessible only in the ray gen shader
+  pushConstant.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+  pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstant;
+  pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+
   if (vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
     throw std::runtime_error("failed to create pipeline layout!");
   }
@@ -411,7 +422,7 @@ void RtVulkanApp::createRayTracingPipeline() {
   raytracingPipelineCreateInfo.pStages = shaderStages.data();
   raytracingPipelineCreateInfo.groupCount = static_cast<uint32_t>(shaderGroups.size());
   raytracingPipelineCreateInfo.pGroups = shaderGroups.data();
-  raytracingPipelineCreateInfo.maxPipelineRayRecursionDepth = 2;
+  raytracingPipelineCreateInfo.maxPipelineRayRecursionDepth = 8;
   raytracingPipelineCreateInfo.layout = pipelineLayout;
 
   if (pfnCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &raytracingPipelineCreateInfo, nullptr, &graphicsPipeline) !=
@@ -750,6 +761,10 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
     hitShaderSbtEntry.size = handleSizeAligned;
 
     VkStridedDeviceAddressRegionKHR callableShaderSbtEntry{};
+    
+    constants.time = clock();
+    // upload the matrix to the GPU via push constants
+    vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(PushConstant), &constants);
 
     /*
             Dispatch the ray tracing commands
@@ -788,29 +803,6 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
     // Transition ray tracing output image back to general layout
     set_image_layout(commandBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresourceRange);
 
-    /*
-            Start a new render pass to draw the UI overlay on top of the ray
-    traced image
-
-    VkClearValue clear_values[2];
-    clear_values[0].color = { {0.0f, 0.0f, 0.033f, 0.0f} };
-    clear_values[1].depthStencil = { 0.0f, 0 };
-
-    VkRenderPassBeginInfo render_pass_begin_info =
-    vkb::initializers::render_pass_begin_info();
-    render_pass_begin_info.renderPass = render_pass;
-    render_pass_begin_info.framebuffer = framebuffers[i];
-    render_pass_begin_info.renderArea.extent.width = width;
-    render_pass_begin_info.renderArea.extent.height = height;
-    render_pass_begin_info.clearValueCount = 2;
-    render_pass_begin_info.pClearValues = clear_values;
-
-    vkCmdBeginRenderPass(draw_cmd_buffers[i], &render_pass_begin_info,
-    VK_SUBPASS_CONTENTS_INLINE); draw_ui(draw_cmd_buffers[i]);
-    vkCmdEndRenderPass(draw_cmd_buffers[i]);
-
-    VK_CHECK(vkEndCommandBuffer(draw_cmd_buffers[i]));
-    */
     VK_CHECK(vkEndCommandBuffer(commandBuffers[i]));
   }
 }
@@ -825,14 +817,9 @@ void RtVulkanApp::initVulkan() {
   createSwapChain();
   createImageViews();
   createRenderPass();
-  // createDescriptorSetLayout();
-  // createGraphicsPipeline();
   createDepthResources();
   createFramebuffers();
   createCommandPool();
-  // createTextureImage();
-  // createTextureImageView();
-  // createTextureSampler();
   loadModel();
   createVertexBuffer();
   createIndexBuffer();
@@ -849,11 +836,8 @@ void RtVulkanApp::initVulkan() {
   createShaderBindingTable();
   /* End Ray tracing setup */
 
-  // createDescriptorPool();
   createDescriptorSets();
   createCommandBuffers();
-  // buildCommandBuffers();
-
   createSyncObjects();
 }
 
@@ -880,9 +864,11 @@ void RtVulkanApp::drawFrame() {
   // Only reset the fence if we are submitting work
   vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
+  
+
   buildCommandBuffers(imageIndex);
   updateUniformBuffer(currentFrame);
-
+  
   VkSubmitInfo submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -925,6 +911,7 @@ void RtVulkanApp::drawFrame() {
   // End recreate swap chain
 
   currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+  constants.frameNumber++;
 }
 
 void RtVulkanApp::createTransformMatrixBuffer() {

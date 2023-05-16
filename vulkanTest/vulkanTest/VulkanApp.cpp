@@ -11,6 +11,7 @@ void VulkanApp::initWindow() {
   window = glfwCreateWindow(appSettings.width, appSettings.height, "Vulkan App",
                             nullptr, nullptr);
   glfwSetWindowUserPointer(window, this);
+  glfwSetCursorPosCallback(window, &VulkanApp::cursorPositionCallbackWrapper);
   glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
@@ -120,14 +121,13 @@ void VulkanApp::loadModel() {
       vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
                     attrib.vertices[3 * index.vertex_index + 1],
                     attrib.vertices[3 * index.vertex_index + 2]};
-      // TODO remove
-      // vertex.pos *= 0.041;
 
       vertex.normal = {attrib.normals[3 * index.normal_index + 0],
                        attrib.normals[3 * index.normal_index + 1],
                        attrib.normals[3 * index.normal_index + 2]};
 
-      vertex.texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
+      if (attrib.texcoords.size() > 0)
+        vertex.texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
                          1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
 
       vertex.color = {0.0f, 0.0f, 0.0f};
@@ -536,27 +536,17 @@ void VulkanApp::createDescriptorPool() {
 }
 
 void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
-  static auto startTime = std::chrono::high_resolution_clock::now();
-  auto currentTime = std::chrono::high_resolution_clock::now();
-  float time = std::chrono::duration<float, std::chrono::seconds::period>(
-                   currentTime - startTime)
-                   .count();
 
   camera.type = CameraType::LookAt;
   camera.set_perspective(60.0f,
                          static_cast<float>(appSettings.width) /
                              static_cast<float>(appSettings.height),
                          0.1f, 512.0f);
-  camera.set_rotation(glm::vec3(150.0, 90.0f, 0.0f));
-  camera.set_translation(glm::vec3(0.0f, 0.0f, -0.7f));
-  camera.rotate(glm::vec3(0, time * 45.0f, 0));
-
+  camera.set_translation(glm::vec3(0.0f, 0.0f, -1.0f));
+  
   UniformBufferObject ubo{};
-  // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-  // glm::vec3(0.0f, 0.0f, 1.0f));
-
   /*
-          https://github.com/KhronosGroup/Vulkan-Samples/blob/51eefabb579b37bafde2f98a7c7c6fe09cf6b7b8/samples/extensions/raytracing_basic/raytracing_basic.cpp#L807
+      https://github.com/KhronosGroup/Vulkan-Samples/blob/51eefabb579b37bafde2f98a7c7c6fe09cf6b7b8/samples/extensions/raytracing_basic/raytracing_basic.cpp#L807
   */
   ubo.proj_inverse = glm::inverse(camera.matrices.perspective);
   ubo.view_inverse = glm::inverse(camera.matrices.view);
@@ -1241,31 +1231,7 @@ void VulkanApp::createSwapChain() {
 }
 
 void VulkanApp::createMaterialBuffer() {
-  // Materials
-  /*Material mat_red = {{1, 0, 0}, {1, 1, 1}, 0.0f};
-  Material mat_green = { {0, 1, 0}, {1, 1, 1}, 0.0f };
-  Material mat_blue = { {0, 0, 1}, {1, 1, 1}, 0.0f };
-  Material mat_yellow = { {1, 1, 0}, {1, 1, 1}, 0.0f };
-  Material mat_cyan = { {0, 1, 1}, {1, 1, 1}, 0.0f };
-  Material mat_magenta = { {1, 0, 1}, {1, 1, 1}, 0.0f };
-  Material mat_grey = { {0.7f, 0.7f, 0.7f}, {0.9f, 0.9f, 0.9f}, 0.1f }; //
-  Slightly reflective Material mat_mirror = { {0.3f, 0.9f, 1.0f}, {0.9f, 0.9f,
-  0.9f}, 0.9f };        // Mirror Slightly blue
-
-  materials = { mat_red, mat_green, mat_blue, mat_yellow, mat_cyan };
-  int32_t matIndexSize = indices.size() / 3;
-  auto matIndexBufferSize = (matIndexSize) * sizeof(int32_t);
-  auto matBufferSize = materials.size() * sizeof(Material);
-
-  // Making sure the material triangle index don't exceed the number of
-  materials auto maxIndex = static_cast<int32_t>(materials.size() - 1);
-  std::vector<int32_t> matIndex(matIndexSize);
-  for (auto i = 0; i < matIndexSize; i++)
-  {
-          // TODO change "0".
-          matIndex[i] = std::min(maxIndex, 0);
-  }
-  */
+  
   // Create Material index buffer
   VkDeviceSize bufferSize = materialsIndex.size() * sizeof(int32_t);
 
@@ -1571,6 +1537,11 @@ VulkanApp::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
 }
 
 void VulkanApp::mainLoop() {
+
+ 
+  //glfwSetMouseButtonCallback(window, mouse_button_callback);
+  //glfwSetScrollCallback(window, scroll_callback);
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
     drawFrame();

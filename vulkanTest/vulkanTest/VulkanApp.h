@@ -30,36 +30,32 @@
 #include "Camera.h"
 #include <chrono>
 
-const std::string BASE_PATH = "./models/";
-const std::string MODEL_PATH = "./models/cube.obj";
+const std::string BASE_PATH = "./models/cornell-box";
+const std::string MODEL_PATH = "./models/cornell-box/CornellBox-Original.obj";
 const std::string TEXTURE_PATH = "./viking_room.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 1;
 
-const std::vector<const char *> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"};
+const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-const std::vector<const char *> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 
-    // Ray tracing extensions
-    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+                                                    // Ray tracing extensions
+                                                    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+                                                    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 
-    // Required by VK_KHR_acceleration_structure
-    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+                                                    // Required by VK_KHR_acceleration_structure
+                                                    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
 
-    // Required for VK_KHR_ray_tracing_pipeline
-    VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+                                                    // Required for VK_KHR_ray_tracing_pipeline
+                                                    VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 
-    // Required by VK_KHR_spirv_1_4
-    VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+                                                    // Required by VK_KHR_spirv_1_4
+                                                    VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
 
-    VK_KHR_8BIT_STORAGE_EXTENSION_NAME, VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
-    // required by GL_EXT_debug_printf
-    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
+                                                    VK_KHR_8BIT_STORAGE_EXTENSION_NAME, VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
+                                                    // required by GL_EXT_debug_printf
+                                                    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
 
 };
 
@@ -78,8 +74,7 @@ struct Vertex {
     return bindingDescription;
   }
 
-  static std::array<VkVertexInputAttributeDescription, 3>
-  getAttributeDescriptions() {
+  static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
     std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
     attributeDescriptions[0].binding = 0;
@@ -106,8 +101,7 @@ struct Vertex {
   }
 
   bool operator==(const Vertex &other) const {
-    return pos == other.pos && normal == other.normal && color == other.color &&
-           texCoord == other.texCoord;
+    return pos == other.pos && normal == other.normal && color == other.color && texCoord == other.texCoord;
   }
 };
 
@@ -129,13 +123,17 @@ struct ObjBuffers {
   VkDeviceAddress materialIndices;
 };
 
+struct PushConstant {
+  uint32_t frameNumber = 0;
+  uint32_t maxDepth = 4;
+  uint32_t numSamples = MAXINT - 1;
+  uint32_t time;
+};
+
 namespace std {
 template <> struct hash<Vertex> {
   size_t operator()(Vertex const &vertex) const {
-    return ((hash<glm::vec3>()(vertex.pos) ^
-             (hash<glm::vec3>()(vertex.color) << 1)) >>
-            1) ^
-           (hash<glm::vec2>()(vertex.texCoord) << 1);
+    return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
   }
 };
 
@@ -180,13 +178,11 @@ struct QueueFamilyIndices {
   std::optional<uint32_t> graphicsFamily;
   std::optional<uint32_t> presentFamily;
 
-  bool isComplete() {
-    return graphicsFamily.has_value() && presentFamily.has_value();
-  }
+  bool isComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }
 };
 
 struct AppSettings {
-  uint32_t width = 800, height = 600;
+  uint32_t width = 1440, height = 900;
 };
 
 class VulkanApp {
@@ -261,16 +257,18 @@ protected:
   std::vector<VkFence> inFlightFences;
 
   Camera camera;
+  double xpos, ypos;
 
   uint32_t currentFrame = 0;
   bool framebufferResized = false;
 
   void initWindow();
 
-  static void framebufferResizeCallback(GLFWwindow *window, int width,
-                                        int height) {
+  static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
     auto app = reinterpret_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
+    app->appSettings.width = width;
+    app->appSettings.height = height;
   }
 
   void createInstance();
@@ -279,29 +277,22 @@ protected:
   void loadModel();
   bool hasStencilComponent(VkFormat format);
   VkFormat findDepthFormat();
-  VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates,
-                               VkImageTiling tiling,
-                               VkFormatFeatureFlags features);
+  VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
   void createDepthResources();
   void createTextureSampler();
-  VkImageView createImageView(VkImage image, VkFormat format,
-                              VkImageAspectFlags aspectFlags);
+  VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
   void createTextureImageView();
 
-  void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
-                         uint32_t height);
+  void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-  void transitionImageLayout(VkImage image, VkFormat format,
-                             VkImageLayout oldLayout, VkImageLayout newLayout);
+  void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
   VkCommandBuffer beginSingleTimeCommands();
 
   void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-  void createImage(uint32_t width, uint32_t height, VkFormat format,
-                   VkImageTiling tiling, VkImageUsageFlags usage,
-                   VkMemoryPropertyFlags properties, VkImage &image,
-                   VkDeviceMemory &imageMemory);
+  void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
+                   VkImage &image, VkDeviceMemory &imageMemory);
 
   void createTextureImage();
 
@@ -318,17 +309,14 @@ protected:
 
   void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
-  void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                    VkMemoryPropertyFlags properties,
-                    VkMemoryAllocateFlags memoryFlags, VkBuffer &buffer,
-                    VkDeviceMemory &bufferMemory);
+  void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags memoryFlags,
+                    VkBuffer &buffer, VkDeviceMemory &bufferMemory);
 
   void createVertexBuffer();
   void createMaterialBuffer();
   void createBufferReferences();
 
-  uint32_t findMemoryType(uint32_t typeFilter,
-                          VkMemoryPropertyFlags properties);
+  uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
   void cleanupSwapChain();
   void recreateSwapChain();
@@ -365,11 +353,9 @@ protected:
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
   SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
-  VkSurfaceFormatKHR chooseSwapSurfaceFormat(
-      const std::vector<VkSurfaceFormatKHR> &availableFormats);
+  VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
 
-  VkPresentModeKHR chooseSwapPresentMode(
-      const std::vector<VkPresentModeKHR> &availablePresentModes);
+  VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
 
   VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
@@ -379,4 +365,26 @@ protected:
   void cleanup();
 
   bool checkValidationLayerSupport();
+
+  PushConstant constants;
+
+  /* Mouse pointer handling */
+  void cursorPositionCallback(double newXpos, double newYpos) {
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+      glm::vec3 rotation = glm::vec3(newYpos, newXpos, 0.0f);
+      camera.set_rotation(rotation);
+
+      if (newXpos != xpos || newYpos != ypos) {
+        constants.frameNumber = 0;
+      }
+      xpos = newXpos;
+      ypos = newYpos;
+    }
+  }
+
+  static void cursorPositionCallbackWrapper(GLFWwindow *window, double newXpos, double newYpos) {
+    auto handler = static_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
+    handler->cursorPositionCallback(newXpos, newYpos);
+  }
 };
