@@ -7,7 +7,6 @@
 #include <GLFW/glfw3native.h>
 
 #undef max
-#include <stb_image.h>
 #include <tiny_obj_loader.h>
 
 #include <algorithm>
@@ -27,7 +26,10 @@
 #include <cstring>
 #include <iomanip>
 
-#include "Camera.h"
+#include "camera.h"
+#include "texture.h"
+#include "buffer.h"
+#include "util.h"
 #include <chrono>
 
 const std::string BASE_PATH = "./models/cornell-box";
@@ -111,11 +113,6 @@ struct Material {
   float shininess{0.f};
 };
 
-struct Buffer {
-  VkBuffer buffer;
-  VkDeviceMemory memory;
-};
-
 struct ObjBuffers {
   VkDeviceAddress vertices;
   VkDeviceAddress indices;
@@ -194,6 +191,7 @@ public:
     cleanup();
   };
   virtual ~VulkanApp(){};
+  VulkanApp(){};
 
 protected:
   AppSettings appSettings;
@@ -218,13 +216,11 @@ protected:
 
   // Vertex buffer
   std::vector<Vertex> vertices;
-  VkBuffer vertexBuffer;
-  VkDeviceMemory vertexBufferMemory;
+  Buffer vertexBuffer;
 
   // Index buffer
   std::vector<uint32_t> indices;
-  VkBuffer indexBuffer;
-  VkDeviceMemory indexBufferMemory;
+  Buffer indexBuffer;
 
   // Material buffer
   Buffer matColorBuffer;
@@ -236,18 +232,13 @@ protected:
   // TODO: convert to std::<vector>.
   ObjBuffers objBuffers;
 
-  VkImage textureImage;
-  VkDeviceMemory textureImageMemory;
-  VkImageView textureImageView;
-  VkSampler textureSampler;
+  Texture exampleTexture;
 
   VkImage depthImage;
   VkDeviceMemory depthImageMemory;
   VkImageView depthImageView;
 
-  std::vector<VkBuffer> uniformBuffers;
-  std::vector<VkDeviceMemory> uniformBuffersMemory;
-  std::vector<void *> uniformBuffersMapped;
+  std::vector<Buffer> uniformBuffers;
 
   std::vector<VkFramebuffer> swapChainFramebuffers;
   VkCommandPool commandPool;
@@ -279,22 +270,10 @@ protected:
   VkFormat findDepthFormat();
   VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
   void createDepthResources();
-  void createTextureSampler();
-  VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-
-  void createTextureImageView();
 
   void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
   void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-  VkCommandBuffer beginSingleTimeCommands();
-
-  void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-
-  void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-                   VkImage &image, VkDeviceMemory &imageMemory);
-
-  void createTextureImage();
 
   void createDescriptorSets();
 
@@ -309,14 +288,9 @@ protected:
 
   void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
-  void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags memoryFlags,
-                    VkBuffer &buffer, VkDeviceMemory &bufferMemory);
-
   void createVertexBuffer();
   void createMaterialBuffer();
   void createBufferReferences();
-
-  uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
   void cleanupSwapChain();
   void recreateSwapChain();

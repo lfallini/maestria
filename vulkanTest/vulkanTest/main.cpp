@@ -1,4 +1,4 @@
-#include "RtVulkanApp.h"
+#include "rt_vulkan_app.h"
 
 int main() {
 	RtVulkanApp app;

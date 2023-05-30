@@ -155,10 +155,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="buffer.cpp" />
+    <ClCompile Include="camera.cpp" />
+    <ClCompile Include="command.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="RtVulkanApp.cpp" />
-    <ClCompile Include="VulkanApp.cpp" />
+    <ClCompile Include="rt_vulkan_app.cpp" />
+    <ClCompile Include="texture.cpp" />
+    <ClCompile Include="util.cpp" />
+    <ClCompile Include="vulkan_app.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />
@@ -172,10 +176,14 @@
     <Image Include="texture.jpg" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.h" />
+    <ClInclude Include="buffer.h" />
+    <ClInclude Include="camera.h" />
+    <ClInclude Include="command.h" />
     <ClInclude Include="main.h" />
-    <ClInclude Include="RtVulkanApp.h" />
-    <ClInclude Include="VulkanApp.h" />
+    <ClInclude Include="rt_vulkan_app.h" />
+    <ClInclude Include="texture.h" />
+    <ClInclude Include="util.h" />
+    <ClInclude Include="vulkan_app.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

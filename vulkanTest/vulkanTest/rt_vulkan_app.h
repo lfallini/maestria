@@ -1,5 +1,5 @@
 #pragma once
-#include "VulkanApp.h"
+#include "vulkan_app.h"
 
 #define VK_CHECK(x)                                                            \
   do {                                                                         \
@@ -22,8 +22,7 @@ struct ScratchBuffer {
 struct AccelerationStructure {
   VkAccelerationStructureKHR handle;
   uint64_t deviceAddress;
-  VkBuffer buffer;
-  VkDeviceMemory memory;
+  Buffer buffer;
 };
 
 struct StorageImage {
@@ -45,9 +44,7 @@ public:
   AccelerationStructure bottomLevelAccelerationStructure;
   AccelerationStructure topLevelAccelerationStructure;
 
-  VkBuffer transformMatrixBuffer;
-  VkDeviceMemory transformMatrixMemory;
-
+  Buffer transformMatrixBuffer;
   Buffer sceneDesc;
 
   StorageImage storageImage;
