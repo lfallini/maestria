@@ -158,9 +158,11 @@
     <ClCompile Include="buffer.cpp" />
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="command.cpp" />
+    <ClCompile Include="cube_map.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="rt_vulkan_app.cpp" />
     <ClCompile Include="texture.cpp" />
+    <ClCompile Include="texture_2D.cpp" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="vulkan_app.cpp" />
   </ItemGroup>
@@ -179,9 +181,11 @@
     <ClInclude Include="buffer.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="command.h" />
+    <ClInclude Include="cube_map.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="rt_vulkan_app.h" />
     <ClInclude Include="texture.h" />
+    <ClInclude Include="texture_2D.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="vulkan_app.h" />
   </ItemGroup>

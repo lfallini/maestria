@@ -64,7 +64,7 @@ void RtVulkanApp::createStorageImage() {
 
   storageImage.width  = width;
   storageImage.height = height;
-  storageImage.view   = createImageView(device, storageImage.image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+  storageImage.view = createImageView(device, storageImage.image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
   transitionImageLayout(storageImage.image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_GENERAL);
 }
@@ -162,7 +162,7 @@ void RtVulkanApp::createBottomLevelAS() {
   // building on the host
   // (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands),
   // but we prefer device builds
-  Command cmd                   = Command(device, commandPool, graphicsQueue);
+  Command         cmd           = Command(device, commandPool, graphicsQueue);
   VkCommandBuffer commandBuffer = cmd.beginSingleTimeCommands();
 
   pfnCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationBuildGeometryInfo,
@@ -183,7 +183,7 @@ void RtVulkanApp::createBottomLevelAS() {
 }
 
 void RtVulkanApp::updateInstancesBuffer(VkAccelerationStructureInstanceKHR accelerationStructureInstance,
-                                        VkBuffer instancesBuffer) {
+                                        VkBuffer                           instancesBuffer) {
   VkDeviceSize bufferSize = sizeof(VkAccelerationStructureInstanceKHR);
 
   Buffer stagingBuffer = Buffer(device, physicalDevice);
@@ -297,7 +297,7 @@ void RtVulkanApp::createTopLevelAS() {
   // building on the host
   // (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands),
   // but we prefer device builds
-  Command cmd                   = Command(device, commandPool, graphicsQueue);
+  Command         cmd           = Command(device, commandPool, graphicsQueue);
   VkCommandBuffer commandBuffer = cmd.beginSingleTimeCommands();
 
   pfnCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationBuildGeometryInfo,
@@ -345,8 +345,15 @@ void RtVulkanApp::createRayTracingPipeline() {
   sceneBufferBinding.descriptorCount = 1;
   sceneBufferBinding.stageFlags      = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
+  VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+  samplerLayoutBinding.binding            = 4;
+  samplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  samplerLayoutBinding.descriptorCount    = 1;
+  samplerLayoutBinding.pImmutableSamplers = nullptr;
+  samplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_MISS_BIT_KHR;
+
   std::vector<VkDescriptorSetLayoutBinding> bindings = {accelerationStructureLayoutBinding, resultImageLayoutBinding,
-                                                        uniformBufferBinding, sceneBufferBinding};
+                                                        uniformBufferBinding, sceneBufferBinding, samplerLayoutBinding};
 
   VkDescriptorSetLayoutCreateInfo layoutInfo{};
   layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -477,12 +484,12 @@ void RtVulkanApp::createShaderBindingTable() {
   std::vector<uint32_t> missIndex{1, 2};
   std::vector<uint32_t> hitIndex{3};
 
-  const uint32_t handleSize        = rayTracingPipelineProperties.shaderGroupHandleSize;
-  const uint32_t handleSizeAligned = alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize,
-                                                 rayTracingPipelineProperties.shaderGroupHandleAlignment);
-  const uint32_t handleAlignment   = rayTracingPipelineProperties.shaderGroupHandleAlignment;
-  const uint32_t groupCount        = static_cast<uint32_t>(rgenIndex.size() + missIndex.size() + hitIndex.size());
-  const uint32_t sbtSize           = groupCount * handleSizeAligned;
+  const uint32_t           handleSize        = rayTracingPipelineProperties.shaderGroupHandleSize;
+  const uint32_t           handleSizeAligned = alignedSize(rayTracingPipelineProperties.shaderGroupHandleSize,
+                                                           rayTracingPipelineProperties.shaderGroupHandleAlignment);
+  const uint32_t           handleAlignment   = rayTracingPipelineProperties.shaderGroupHandleAlignment;
+  const uint32_t           groupCount = static_cast<uint32_t>(rgenIndex.size() + missIndex.size() + hitIndex.size());
+  const uint32_t           sbtSize    = groupCount * handleSizeAligned;
   const VkBufferUsageFlags sbtBufferUsageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR |
                                                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -530,7 +537,8 @@ void RtVulkanApp::createDescriptorSets() {
   std::vector<VkDescriptorPoolSize> poolSizes = {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
                                                  {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
                                                  {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-                                                 {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
+                                                 {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+                                                 {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}};
 
   VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
   descriptorPoolCreateInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -593,6 +601,12 @@ void RtVulkanApp::createDescriptorSets() {
   sceneDescriptor.range  = sizeof(ObjBuffers);
   sceneDescriptor.offset = 0;
 
+  // CubeMap
+  VkDescriptorImageInfo cubeMapInfo{};
+  cubeMapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  cubeMapInfo.imageView   = skybox.imageView;
+  cubeMapInfo.sampler     = skybox.sampler;
+
   VkWriteDescriptorSet resultImageWrite{};
   resultImageWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   resultImageWrite.dstSet          = descriptorSets[0];
@@ -617,16 +631,24 @@ void RtVulkanApp::createDescriptorSets() {
   sceneBufferWrite.pBufferInfo     = &sceneDescriptor;
   sceneBufferWrite.descriptorCount = 1;
 
+  VkWriteDescriptorSet cubeMapBufferWrite{};
+  cubeMapBufferWrite.sType         = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  cubeMapBufferWrite.dstSet        = descriptorSets[0];
+  cubeMapBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  cubeMapBufferWrite.dstBinding     = 4;
+  cubeMapBufferWrite.pImageInfo     = &cubeMapInfo;
+  cubeMapBufferWrite.descriptorCount = 1;
+
   std::vector<VkWriteDescriptorSet> writeDescriptorSets = {accelerationStructureWrite, resultImageWrite,
-                                                           uniformBufferWrite, sceneBufferWrite};
+                                                           uniformBufferWrite, sceneBufferWrite, cubeMapBufferWrite};
   vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0,
                          VK_NULL_HANDLE);
 }
 
 void set_image_layout(VkCommandBuffer command_buffer, VkImage image, VkImageLayout old_layout, VkImageLayout new_layout,
                       VkImageSubresourceRange subresource_range,
-                      VkPipelineStageFlags src_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                      VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) {
+                      VkPipelineStageFlags    src_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                      VkPipelineStageFlags    dst_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) {
   // Create an image barrier object
   VkImageMemoryBarrier barrier{};
   barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -858,6 +880,7 @@ void RtVulkanApp::initVulkan() {
   createMaterialBuffer();
   createBufferReferences();
 
+  skybox = loadCubeMap();
   /* Ray tracing setup */
   getPhysicalDeviceRaytracingProperties();
   createStorageImage();
@@ -903,13 +926,13 @@ void RtVulkanApp::drawFrame() {
   VkSubmitInfo submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  VkSemaphore waitSemaphores[]      = {imageAvailableSemaphores[currentFrame]};
-  VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-  submitInfo.waitSemaphoreCount     = 1;
-  submitInfo.pWaitSemaphores        = waitSemaphores;
-  submitInfo.pWaitDstStageMask      = waitStages;
-  submitInfo.commandBufferCount     = 1;
-  submitInfo.pCommandBuffers        = &commandBuffers[currentFrame];
+  VkSemaphore          waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+  VkPipelineStageFlags waitStages[]     = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+  submitInfo.waitSemaphoreCount         = 1;
+  submitInfo.pWaitSemaphores            = waitSemaphores;
+  submitInfo.pWaitDstStageMask          = waitStages;
+  submitInfo.commandBufferCount         = 1;
+  submitInfo.pCommandBuffers            = &commandBuffers[currentFrame];
 
   VkSemaphore signalSemaphores[]  = {renderFinishedSemaphores[currentFrame]};
   submitInfo.signalSemaphoreCount = 1;
@@ -953,8 +976,8 @@ void RtVulkanApp::createTransformMatrixBuffer() {
 
   Buffer stagingBuffer = Buffer(device, physicalDevice);
   stagingBuffer.init(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
   void *data;
   vkMapMemory(device, stagingBuffer.memory, 0, bufferSize, 0, &data);
@@ -965,10 +988,10 @@ void RtVulkanApp::createTransformMatrixBuffer() {
   // acceleration structure require special flags
   transformMatrixBuffer = Buffer(device, physicalDevice);
   transformMatrixBuffer.init(bufferSize,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-               0, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                 VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                             0, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
   copyBuffer(stagingBuffer.buffer, transformMatrixBuffer.buffer, bufferSize);
 
@@ -1016,7 +1039,7 @@ void RtVulkanApp::createBufferReferences() {
 
   Buffer stagingBuffer = Buffer(device, physicalDevice);
   stagingBuffer.init(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
 
   void *data;
   vkMapMemory(device, stagingBuffer.memory, 0, bufferSize, 0, &data);
@@ -1024,10 +1047,10 @@ void RtVulkanApp::createBufferReferences() {
   vkUnmapMemory(device, stagingBuffer.memory);
 
   sceneDesc = Buffer(device, physicalDevice);
-  sceneDesc.init(
-      bufferSize,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+  sceneDesc.init(bufferSize,
+                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                     VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
   copyBuffer(stagingBuffer.buffer, sceneDesc.buffer, bufferSize);
 

@@ -16,9 +16,9 @@ uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, Vk
 
 // Image
 
-void createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-                            VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
-                            VkDeviceMemory &imageMemory) {
+void createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, VkFormat format,
+                 VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
+                 VkDeviceMemory &imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags) {
   VkImageCreateInfo imageInfo{};
   imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageInfo.imageType     = VK_IMAGE_TYPE_2D;
@@ -26,13 +26,14 @@ void createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t widt
   imageInfo.extent.height = height;
   imageInfo.extent.depth  = 1;
   imageInfo.mipLevels     = 1;
-  imageInfo.arrayLayers   = 1;
+  imageInfo.arrayLayers   = arrayLayers;
   imageInfo.format        = format;
   imageInfo.tiling        = tiling;
   imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   imageInfo.usage         = usage;
   imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.flags         = flags;
 
   if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
     throw std::runtime_error("failed to create image!");
@@ -53,17 +54,18 @@ void createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t widt
   vkBindImageMemory(device, image, imageMemory, 0);
 }
 
-VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
+VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+                            VkImageViewType viewType, uint32_t layerCount) {
   VkImageViewCreateInfo viewInfo{};
   viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   viewInfo.image                           = image;
-  viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.viewType                        = viewType;
   viewInfo.format                          = format;
   viewInfo.subresourceRange.aspectMask     = aspectFlags;
   viewInfo.subresourceRange.baseMipLevel   = 0;
   viewInfo.subresourceRange.levelCount     = 1;
   viewInfo.subresourceRange.baseArrayLayer = 0;
-  viewInfo.subresourceRange.layerCount     = 1;
+  viewInfo.subresourceRange.layerCount     = layerCount;
 
   VkImageView imageView;
   if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
@@ -74,7 +76,7 @@ VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkI
 }
 
 void transitionImageLayout(VkDevice device, VkImage image, VkFormat format, VkImageLayout oldLayout,
-                           VkImageLayout newLayout, Command command) {
+                           VkImageLayout newLayout, Command command, uint32_t layerCount) {
 
   VkCommandBuffer commandBuffer = command.beginSingleTimeCommands();
 
@@ -89,7 +91,7 @@ void transitionImageLayout(VkDevice device, VkImage image, VkFormat format, VkIm
   barrier.subresourceRange.baseMipLevel   = 0;
   barrier.subresourceRange.levelCount     = 1;
   barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount     = 1;
+  barrier.subresourceRange.layerCount     = layerCount;
 
   VkPipelineStageFlags sourceStage      = 0;
   VkPipelineStageFlags destinationStage = 0;

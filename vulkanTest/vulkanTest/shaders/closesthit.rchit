@@ -176,6 +176,10 @@ void main()
 	vec3 N = v0.nrm.xyz * barycentrics.x + v1.nrm.xyz * barycentrics.y + v2.nrm.xyz * barycentrics.z;
 	N      = normalize(vec3(N.xyz * gl_WorldToObjectEXT));        // Transforming the normal to world space
 
+	//TODO  WHAT ??? shoudn't be dot < 0???
+	if (dot(N,gl_WorldRayDirectionEXT) > 0)
+		N = -N;
+
 	// Computing the coordinates of the hit position
 	vec3 P = v0.pos.xyz * barycentrics.x + v1.pos.xyz * barycentrics.y + v2.pos.xyz * barycentrics.z;
 	P      = vec3(gl_ObjectToWorldEXT * vec4(P, 1.0));        // Transforming the position to world space
@@ -214,21 +218,25 @@ void main()
 
 		if (isShadowed)
 			diffuse *= 0.3;
-		else
+		//else
 			// Add specular only if not in shadow
-			specular = computeSpecular(mat, gl_WorldRayDirectionEXT, L, N);
+			//specular = computeSpecular(mat, gl_WorldRayDirectionEXT, L, N);
 	}
 	// TODO remove 0.
 	mat.shininess = 0;
 	prd.radiance = (diffuse + specular) * prd.attenuation;// * (1 - mat.shininess) * prd.attenuation;
 
 	// Reflect
-
-	//vec3 rayDir = reflect(gl_WorldRayDirectionEXT, N);
-	const float theta = 6.2831853 * stepAndOutputRNGFloat(prd.rngState);  // Random in [0, 2pi]
-    const float u     = 2.0 * stepAndOutputRNGFloat(prd.rngState) - 1.0;  // Random in [-1, 1]
-    const float r     = sqrt(1.0 - u * u);
-    vec3 rayDir       = N + vec3(r * cos(theta), r * sin(theta), u);
+	vec3 rayDir;
+	
+	if (length(mat.specular) > 0)
+		rayDir = reflect(gl_WorldRayDirectionEXT, -N);
+	else{
+		const float theta = 6.2831853 * stepAndOutputRNGFloat(prd.rngState);  // Random in [0, 2pi]
+		const float u     = 2.0 * stepAndOutputRNGFloat(prd.rngState) - 1.0;  // Random in [-1, 1]
+		const float r     = sqrt(1.0 - u * u);
+		rayDir            = N + vec3(r * cos(theta), r * sin(theta), u);
+	}
 
 	prd.attenuation *= mat.diffuse;
 	prd.rayOrigin = P + 0.0001 * N;

@@ -32,7 +32,7 @@ void VulkanApp::createInstance() {
   createInfo.sType            = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
 
-  uint32_t glfwExtensionCount = 0;
+  uint32_t     glfwExtensionCount = 0;
   const char **glfwExtensions;
 
   glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -81,15 +81,15 @@ void VulkanApp::initVulkan() {
   createFramebuffers();
   createCommandPool();
 
-  exampleTexture = Texture(TEXTURE_PATH, device, physicalDevice);
+  exampleTexture = Texture2D(TEXTURE_PATH, device, physicalDevice);
 
   Command cmd = Command(device, commandPool, graphicsQueue);
   exampleTexture.createTextureImage(cmd);
   exampleTexture.createTextureImageView();
   exampleTexture.createTextureSampler();
-  //createTextureImage();
-  //createTextureImageView();
-  //createTextureSampler();
+  // createTextureImage();
+  // createTextureImageView();
+  // createTextureSampler();
 
   loadModel();
   createVertexBuffer();
@@ -103,10 +103,10 @@ void VulkanApp::initVulkan() {
 
 void VulkanApp::loadModel() {
 
-  tinyobj::attrib_t attrib;
-  std::vector<tinyobj::shape_t> shapes;
+  tinyobj::attrib_t                attrib;
+  std::vector<tinyobj::shape_t>    shapes;
   std::vector<tinyobj::material_t> materials_t;
-  std::string warn, err;
+  std::string                      warn, err;
 
   std::cout << "loading model " << MODEL_PATH << std::endl;
 
@@ -181,18 +181,16 @@ VkFormat VulkanApp::findSupportedFormat(const std::vector<VkFormat> &candidates,
 
 void VulkanApp::createDepthResources() {
   VkFormat depthFormat = findDepthFormat();
-  createImage(device, physicalDevice, swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
-              depthImageMemory);
+  createImage(device, physicalDevice, swapChainExtent.width, swapChainExtent.height, depthFormat,
+              VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+              depthImage, depthImageMemory);
   depthImageView = createImageView(device, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
-
-
 
 void VulkanApp::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
                                       VkImageLayout newLayout) {
 
-  Command cmd                   = Command(device, commandPool, graphicsQueue);
+  Command         cmd           = Command(device, commandPool, graphicsQueue);
   VkCommandBuffer commandBuffer = cmd.beginSingleTimeCommands();
 
   VkImageMemoryBarrier barrier{};
@@ -256,11 +254,10 @@ void VulkanApp::transitionImageLayout(VkImage image, VkFormat format, VkImageLay
   cmd.endSingleTimeCommands();
 }
 
-
 void VulkanApp::createDescriptorSets() {
 
   std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
-  VkDescriptorSetAllocateInfo allocInfo{};
+  VkDescriptorSetAllocateInfo        allocInfo{};
   allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   allocInfo.descriptorPool     = descriptorPool;
   allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -349,7 +346,7 @@ void VulkanApp::createUniformBuffers() {
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     uniformBuffers[i] = Buffer(device, physicalDevice);
     uniformBuffers[i].init(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
 
     vkMapMemory(device, uniformBuffers[i].memory, 0, bufferSize, 0, &uniformBuffers[i].map);
   }
@@ -371,7 +368,7 @@ void VulkanApp::createDescriptorSetLayout() {
   samplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
 
   std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
-  VkDescriptorSetLayoutCreateInfo layoutInfo{};
+  VkDescriptorSetLayoutCreateInfo             layoutInfo{};
   layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
   layoutInfo.pBindings    = bindings.data();
@@ -407,8 +404,8 @@ void VulkanApp::createIndexBuffer() {
 }
 
 void VulkanApp::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-  
-  Command cmd                   = Command(device, commandPool, graphicsQueue);
+
+  Command         cmd           = Command(device, commandPool, graphicsQueue);
   VkCommandBuffer commandBuffer = cmd.beginSingleTimeCommands();
 
   VkBufferCopy copyRegion{};
@@ -540,8 +537,8 @@ void VulkanApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imag
 
   bindPipeline(commandBuffer, graphicsPipeline);
 
-  VkBuffer vertexBuffers[] = {vertexBuffer.buffer};
-  VkDeviceSize offsets[]   = {0};
+  VkBuffer     vertexBuffers[] = {vertexBuffer.buffer};
+  VkDeviceSize offsets[]       = {0};
   vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
   vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -849,7 +846,8 @@ void VulkanApp::createImageViews() {
   swapChainImageViews.resize(swapChainImages.size());
 
   for (size_t i = 0; i < swapChainImages.size(); i++) {
-    swapChainImageViews[i] = createImageView(device, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    swapChainImageViews[i] =
+        createImageView(device, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
   }
 }
 
@@ -857,8 +855,8 @@ void VulkanApp::createSwapChain() {
   SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
   VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-  VkPresentModeKHR presentMode     = chooseSwapPresentMode(swapChainSupport.presentModes);
-  VkExtent2D extent                = chooseSwapExtent(swapChainSupport.capabilities);
+  VkPresentModeKHR   presentMode   = chooseSwapPresentMode(swapChainSupport.presentModes);
+  VkExtent2D         extent        = chooseSwapExtent(swapChainSupport.capabilities);
 
   uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 
@@ -877,7 +875,7 @@ void VulkanApp::createSwapChain() {
   createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
   QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-  uint32_t queueFamilyIndices[]{indices.graphicsFamily.value(), indices.presentFamily.value()};
+  uint32_t           queueFamilyIndices[]{indices.graphicsFamily.value(), indices.presentFamily.value()};
 
   if (indices.graphicsFamily != indices.presentFamily) {
     createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
@@ -915,7 +913,7 @@ void VulkanApp::createMaterialBuffer() {
   Buffer stagingBuffer = Buffer(device, physicalDevice);
 
   stagingBuffer.init(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
 
   void *data;
   vkMapMemory(device, stagingBuffer.memory, 0, bufferSize, 0, &data);
@@ -924,9 +922,9 @@ void VulkanApp::createMaterialBuffer() {
 
   matIndexBuffer = Buffer(device, physicalDevice);
   matIndexBuffer.init(bufferSize,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+                      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                          VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
   copyBuffer(stagingBuffer.buffer, matIndexBuffer.buffer, bufferSize);
 
@@ -938,7 +936,7 @@ void VulkanApp::createMaterialBuffer() {
 
   stagingBuffer = Buffer(device, physicalDevice);
   stagingBuffer.init(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0);
 
   vkMapMemory(device, stagingBuffer.memory, 0, bufferSize, 0, &data);
   memcpy(data, reinterpret_cast<const uint8_t *>(materials.data()), (size_t)bufferSize);
@@ -946,9 +944,9 @@ void VulkanApp::createMaterialBuffer() {
 
   matColorBuffer = Buffer(device, physicalDevice);
   matColorBuffer.init(bufferSize,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+                      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                          VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
   copyBuffer(stagingBuffer.buffer, matColorBuffer.buffer, bufferSize);
 
@@ -982,9 +980,9 @@ void VulkanApp::createLogicalDevice() {
   deviceFeatures.shaderInt64       = VK_TRUE;
 
   // Ray tracing features
-  VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-  VkPhysicalDeviceVulkan12Features features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-  VkPhysicalDeviceVulkan11Features features11{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+  VkPhysicalDeviceFeatures2                        features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+  VkPhysicalDeviceVulkan12Features                 features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+  VkPhysicalDeviceVulkan11Features                 features11{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
   VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeature{
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
   VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures{
@@ -1217,13 +1215,13 @@ void VulkanApp::drawFrame() {
   VkSubmitInfo submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  VkSemaphore waitSemaphores[]      = {imageAvailableSemaphores[currentFrame]};
-  VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-  submitInfo.waitSemaphoreCount     = 1;
-  submitInfo.pWaitSemaphores        = waitSemaphores;
-  submitInfo.pWaitDstStageMask      = waitStages;
-  submitInfo.commandBufferCount     = 1;
-  submitInfo.pCommandBuffers        = &commandBuffers[currentFrame];
+  VkSemaphore          waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+  VkPipelineStageFlags waitStages[]     = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+  submitInfo.waitSemaphoreCount         = 1;
+  submitInfo.pWaitSemaphores            = waitSemaphores;
+  submitInfo.pWaitDstStageMask          = waitStages;
+  submitInfo.commandBufferCount         = 1;
+  submitInfo.pCommandBuffers            = &commandBuffers[currentFrame];
 
   VkSemaphore signalSemaphores[]  = {renderFinishedSemaphores[currentFrame]};
   submitInfo.signalSemaphoreCount = 1;
@@ -1325,4 +1323,19 @@ bool VulkanApp::checkValidationLayerSupport() {
   }
 
   return true;
+}
+
+CubeMap VulkanApp::loadCubeMap() {
+
+  CubeMap cubemap =
+      CubeMap({"./textures/skybox/right.jpg", "./textures/skybox/left.jpg", "./textures/skybox/top.jpg",
+               "./textures/skybox/bottom.jpg", "./textures/skybox/front.jpg", "./textures/skybox/back.jpg"},
+              device, physicalDevice);
+
+  Command cmd = Command(device, commandPool, graphicsQueue);
+  cubemap.createTextureImage(cmd);
+  cubemap.createTextureImageView();
+  cubemap.createTextureSampler();
+
+  return cubemap;
 }
