@@ -632,11 +632,11 @@ void RtVulkanApp::createDescriptorSets() {
   sceneBufferWrite.descriptorCount = 1;
 
   VkWriteDescriptorSet cubeMapBufferWrite{};
-  cubeMapBufferWrite.sType         = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  cubeMapBufferWrite.dstSet        = descriptorSets[0];
-  cubeMapBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  cubeMapBufferWrite.dstBinding     = 4;
-  cubeMapBufferWrite.pImageInfo     = &cubeMapInfo;
+  cubeMapBufferWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  cubeMapBufferWrite.dstSet          = descriptorSets[0];
+  cubeMapBufferWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  cubeMapBufferWrite.dstBinding      = 4;
+  cubeMapBufferWrite.pImageInfo      = &cubeMapInfo;
   cubeMapBufferWrite.descriptorCount = 1;
 
   std::vector<VkWriteDescriptorSet> writeDescriptorSets = {accelerationStructureWrite, resultImageWrite,
@@ -857,6 +857,82 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
     set_image_layout(commandBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                      VK_IMAGE_LAYOUT_GENERAL, subresourceRange);
 
+
+    // TODO: move the following code to a new class (e.g. ui.h)
+    /*
+        Start a new render pass to draw the UI overlay on top of the ray traced image
+    */
+    VkClearValue clear_values[2];
+    clear_values[0].color        = {{0.0f, 0.0f, 0.033f, 0.0f}};
+    clear_values[1].depthStencil = {0.0f, 0};
+
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType                       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass                  = renderPass;
+    renderPassBeginInfo.framebuffer                 = swapChainFramebuffers[imageIndex];
+    renderPassBeginInfo.renderArea.extent.width     = storageImage.width;
+    renderPassBeginInfo.renderArea.extent.height    = storageImage.height;
+    renderPassBeginInfo.clearValueCount             = 2;
+    renderPassBeginInfo.pClearValues                = clear_values;
+
+    vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Our state
+    bool   show_demo_window    = true;
+    bool   show_another_window = false;
+    ImVec4 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    // Start the Dear ImGui frame
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to
+    // learn more about Dear ImGui!).
+    if (show_demo_window)
+      ImGui::ShowDemoWindow(&show_demo_window);
+
+    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+    {
+      static float f       = 0.0f;
+      static int   counter = 0;
+
+      ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
+
+      ImGui::Text("This is some useful text.");          // Display some text (you can use a format strings too)
+      ImGui::Checkbox("Demo Window", &show_demo_window); // Edit bools storing our window open/close state
+      ImGui::Checkbox("Another Window", &show_another_window);
+
+      if (ImGui::SliderInt("Path depth", (int *)&constants.maxDepth, 0, 10)) {
+        constants.frameNumber = 0;
+      } // Edit 1 float using a slider from 0.0f to 1.0f
+      ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
+
+      if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
+        counter++;
+      ImGui::SameLine();
+      ImGui::Text("counter = %d", counter);
+
+      // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+      ImGui::End();
+    }
+
+    // 3. Show another simple window.
+    if (show_another_window) {
+      ImGui::Begin("Another Window", &show_another_window); // Pass a pointer to our bool variable (the window will have
+                                                            // a closing button that will clear the bool when clicked)
+      ImGui::Text("Hello from another window!");
+      if (ImGui::Button("Close Me"))
+        show_another_window = false;
+      ImGui::End();
+    }
+
+    ImGui::Render();
+    auto       &io            = ImGui::GetIO();
+    ImDrawData *draw_data     = ImGui::GetDrawData();
+
+    // Record dear imgui primitives into command buffer
+    ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffers[i]);
+    vkCmdEndRenderPass(commandBuffers[i]);
     VK_CHECK(vkEndCommandBuffer(commandBuffers[i]));
   }
 }
@@ -894,10 +970,74 @@ void RtVulkanApp::initVulkan() {
   createDescriptorSets();
   createCommandBuffers();
   createSyncObjects();
+
+  /* ImgUi */
+  initImgUi();
 }
 
 void RtVulkanApp::bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline) {
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipeline);
+}
+
+void RtVulkanApp::createRenderPass() {
+  // Color Attachment
+  VkAttachmentDescription colorAttachment{};
+  colorAttachment.format         = swapChainImageFormat;
+  colorAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+  colorAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  colorAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+  colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+  colorAttachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+  VkAttachmentReference colorAttachmentRef{};
+  colorAttachmentRef.attachment = 0;
+  colorAttachmentRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+  // Depth Attachment
+  VkAttachmentDescription depthAttachment{};
+  depthAttachment.format         = findDepthFormat();
+  depthAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+  depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+  depthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  VkAttachmentReference depthAttachmentRef{};
+  depthAttachmentRef.attachment = 1;
+  depthAttachmentRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+  VkSubpassDescription subpass{};
+  subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass.colorAttachmentCount    = 1;
+  subpass.pColorAttachments       = &colorAttachmentRef;
+  subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+  VkSubpassDependency dependency{};
+  dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass    = 0;
+  dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+  std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+
+  VkRenderPassCreateInfo renderPassInfo{};
+  renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+  renderPassInfo.pAttachments    = attachments.data();
+  renderPassInfo.subpassCount    = 1;
+  renderPassInfo.pSubpasses      = &subpass;
+  renderPassInfo.dependencyCount = 1;
+  renderPassInfo.pDependencies   = &dependency;
+
+  if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create render pass!");
+  }
 }
 
 void RtVulkanApp::drawFrame() {
@@ -921,6 +1061,7 @@ void RtVulkanApp::drawFrame() {
   vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
   buildCommandBuffers(imageIndex);
+
   updateUniformBuffer(currentFrame);
 
   VkSubmitInfo submitInfo{};
