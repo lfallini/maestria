@@ -29,15 +29,27 @@
 #include "buffer.h"
 #include "camera.h"
 #include "cube_map.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #include "texture_2D.h"
 #include "util.h"
 #include <chrono>
 
-//const std::string BASE_PATH    = "./models/cornell-box";
-//const std::string MODEL_PATH   = "./models/cornell-box/CornellBox-Original.obj";
+#define VK_CHECK(x)                                                                                                    \
+  do {                                                                                                                 \
+    VkResult err = x;                                                                                                  \
+    if (err) {                                                                                                         \
+      std::cout << "Detected Vulkan error: " << std::to_string(err) << std::endl;                                      \
+      abort();                                                                                                         \
+    };                                                                                                                 \
+  } while (0);
 
-const std::string BASE_PATH    = "./models/sphere";
-const std::string MODEL_PATH   = "./models/sphere/sphere.obj";
+// const std::string BASE_PATH    = "./models/cornell-box";
+// const std::string MODEL_PATH   = "./models/cornell-box/Corn ellBox-Original.obj";
+
+const std::string BASE_PATH  = "./models/sphere";
+const std::string MODEL_PATH = "./models/sphere/sphere.obj";
 
 const std::string TEXTURE_PATH = "./viking_room.png";
 
@@ -260,6 +272,9 @@ protected:
   uint32_t currentFrame       = 0;
   bool     framebufferResized = false;
 
+  // ImgUi
+  ImGui_ImplVulkanH_Window wd;
+
   void initWindow();
 
   static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
@@ -296,8 +311,8 @@ protected:
   void     recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
   void     createCommandPool();
   void     createFramebuffers();
-  void     createRenderPass();
-  void     createGraphicsPipeline();
+  void virtual createRenderPass();
+  void           createGraphicsPipeline();
   VkShaderModule createShaderModule(const std::vector<char> &code);
   void           createImageViews();
   void           createSwapChain();
@@ -312,6 +327,7 @@ protected:
   VkSurfaceFormatKHR      chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
   VkPresentModeKHR        chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
   VkExtent2D              chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+  void                    initImgUi();
   void                    mainLoop();
   void virtual drawFrame();
   void         cleanup();
@@ -321,6 +337,11 @@ protected:
 
   /* Mouse pointer handling */
   void cursorPositionCallback(double newXpos, double newYpos) {
+
+    auto &io = ImGui::GetIO();
+    if (io.WantCaptureMouse || io.WantCaptureKeyboard) {
+      return;
+    }
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
       glm::vec3 rotation = glm::vec3(newYpos, newXpos, 0.0f);
@@ -337,5 +358,13 @@ protected:
   static void cursorPositionCallbackWrapper(GLFWwindow *window, double newXpos, double newYpos) {
     auto handler = static_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
     handler->cursorPositionCallback(newXpos, newYpos);
+  }
+
+  static void check_vk_result(VkResult err) {
+    if (err == 0)
+      return;
+    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+    if (err < 0)
+      abort();
   }
 };

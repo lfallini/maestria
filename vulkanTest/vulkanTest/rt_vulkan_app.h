@@ -1,15 +1,6 @@
 #pragma once
 #include "vulkan_app.h"
 
-#define VK_CHECK(x)                                                                                                    \
-  do {                                                                                                                 \
-    VkResult err = x;                                                                                                  \
-    if (err) {                                                                                                         \
-      std::cout << "Detected Vulkan error: " << std::to_string(err) << std::endl;                                      \
-      abort();                                                                                                         \
-    };                                                                                                                 \
-  } while (0);
-
 // Holds data for a scratch buffer used as a temporary storage during
 // acceleration structure builds
 struct ScratchBuffer {
@@ -84,7 +75,7 @@ public:
 
   void initVulkan() override;
   void bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline) override;
-
+  void createRenderPass() override;
   void drawFrame() override;
 
   inline VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer) {
