@@ -11,6 +11,7 @@ void VulkanApp::initWindow() {
   window = glfwCreateWindow(appSettings.width, appSettings.height, "Vulkan App", nullptr, nullptr);
   glfwSetWindowUserPointer(window, this);
   glfwSetCursorPosCallback(window, &VulkanApp::cursorPositionCallbackWrapper);
+  glfwSetMouseButtonCallback(window, &VulkanApp::cursorButtonCallbackWrapper);
   glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 

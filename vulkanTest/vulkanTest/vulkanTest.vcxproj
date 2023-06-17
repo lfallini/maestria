@@ -181,6 +181,7 @@
     <None Include="shaders\closesthit.rchit" />
     <None Include="shaders\miss.rmiss" />
     <None Include="shaders\missShadow.rmiss" />
+    <None Include="shaders\ndf\ggx.glsl" />
     <None Include="shaders\raygen.rgen" />
   </ItemGroup>
   <ItemGroup>

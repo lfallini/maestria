@@ -26,24 +26,8 @@ layout(binding = 2, set = 0) uniform CameraProperties
 	mat4 projInverse;
 } cam;
 
-struct hitPayload
-{
-	vec3 radiance;
-	vec3 attenuation;
-	int  done;
-	vec3 rayOrigin;
-	vec3 rayDir;
-	uint rngState;
-};
-
-layout(push_constant) uniform Constants
-{
-  int frameNumber;
-  int maxDepth;
-  int numSamples;
-  int time;
-} constants;
-
+#include "struct.glsl"
+#include "constants.glsl"
 
 layout(location = 0) rayPayloadEXT hitPayload prd;
 
@@ -93,14 +77,14 @@ void main()
 	}
 	
 	int NUM_SAMPLES = constants.numSamples;
-	int frameNumber = constants.frameNumber;
+	int FRAME_NUMBER = constants.frameNumber;
 
-	if (frameNumber < NUM_SAMPLES) {
+	if (FRAME_NUMBER < NUM_SAMPLES) {
 		vec3 oldRadiance = imageLoad(image, ivec2(gl_LaunchIDEXT.xy)).xyz;
-		vec3 newRadiance = (oldRadiance * (frameNumber - 1) + summedPixelColor) / frameNumber;
+		vec3 newRadiance = (oldRadiance * (FRAME_NUMBER - 1) + summedPixelColor) / FRAME_NUMBER;
 		imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(newRadiance, 0.0));
 	}
-	if (frameNumber == 0) {
+	if (FRAME_NUMBER == 0) {
 		imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(summedPixelColor, 0.0));
 	}
 }
