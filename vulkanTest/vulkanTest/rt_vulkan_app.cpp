@@ -336,7 +336,7 @@ void RtVulkanApp::createRayTracingPipeline() {
   uniformBufferBinding.binding         = 2;
   uniformBufferBinding.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   uniformBufferBinding.descriptorCount = 1;
-  uniformBufferBinding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+  uniformBufferBinding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
   // Scene description
   VkDescriptorSetLayoutBinding sceneBufferBinding{};
@@ -374,8 +374,8 @@ void RtVulkanApp::createRayTracingPipeline() {
   pushConstant.offset = 0;
   // this push constant range takes up the size of a PushConstant struct
   pushConstant.size = sizeof(PushConstant);
-  // this push constant range is accessible only in the ray gen shader
-  pushConstant.stageFlags                         = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+  // this push constant range is accessible only in the ray gen and closest hit shader
+  pushConstant.stageFlags                         = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
   pipelineLayoutCreateInfo.pPushConstantRanges    = &pushConstant;
   pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 
@@ -814,7 +814,7 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
 
     constants.time = clock();
     // upload the matrix to the GPU via push constants
-    vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(PushConstant),
+    vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0, sizeof(PushConstant),
                        &constants);
 
     /*
@@ -905,6 +905,15 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
       if (ImGui::SliderInt("Path depth", (int *)&constants.maxDepth, 0, 10)) {
         constants.frameNumber = 0;
       } // Edit 1 float using a slider from 0.0f to 1.0f
+      if (ImGui::SliderInt("Samples ", (int *)&constants.numSamples, 0, 10)) {
+        constants.frameNumber = 0;
+      } 
+      ImGui::Text("Frame = %d", constants.frameNumber);
+
+      if (ImGui::SliderFloat("Roughness", (float *)&constants.roughness, 0, 1)) {
+        constants.frameNumber = 0;
+      }                                                        // Edit 1 float using a slider from 0.0f to 1.0f
+
       ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
 
       if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)

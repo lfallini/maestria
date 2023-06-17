@@ -140,9 +140,10 @@ struct ObjBuffers {
 
 struct PushConstant {
   uint32_t frameNumber = 0;
-  uint32_t maxDepth    = 4;
+  uint32_t maxDepth    = 2;
   uint32_t numSamples  = MAXINT - 1;
   uint32_t time;
+  float    roughness = 0.01;
 };
 
 namespace std {
@@ -338,14 +339,15 @@ protected:
   /* Mouse pointer handling */
   void cursorPositionCallback(double newXpos, double newYpos) {
 
+    // ignore if the mouse is over the UI.
     auto &io = ImGui::GetIO();
     if (io.WantCaptureMouse || io.WantCaptureKeyboard) {
       return;
     }
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-      glm::vec3 rotation = glm::vec3(newYpos, newXpos, 0.0f);
-      camera.set_rotation(rotation);
+      glm::vec3 rotation = glm::vec3(newYpos - ypos, newXpos - xpos, 0.0f);
+      camera.set_rotation(camera.rotation + 0.1f * rotation);
 
       if (newXpos != xpos || newYpos != ypos) {
         constants.frameNumber = 0;
@@ -355,9 +357,31 @@ protected:
     }
   }
 
+  /* Mouse pointer handling */
+  void mouseButtonCallback(int button, int action, int mods) {
+
+    // ignore if the mouse is over the UI.
+    auto &io = ImGui::GetIO();
+    if (io.WantCaptureMouse || io.WantCaptureKeyboard) {
+      return;
+    }
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+      double newXpos, newYpos;
+      glfwGetCursorPos(window, &newXpos, &newYpos);
+      xpos = newXpos;
+      ypos = newYpos;
+    }
+  }
+
   static void cursorPositionCallbackWrapper(GLFWwindow *window, double newXpos, double newYpos) {
     auto handler = static_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
     handler->cursorPositionCallback(newXpos, newYpos);
+  }
+
+  static void cursorButtonCallbackWrapper(GLFWwindow *window, int button, int action, int mods) {
+    auto handler = static_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
+    handler->mouseButtonCallback(button, action, mods);
   }
 
   static void check_vk_result(VkResult err) {
