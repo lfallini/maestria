@@ -1,4 +1,5 @@
 #include "rt_vulkan_app.h"
+#include "ui.h"
 
 void RtVulkanApp::initPointerFunctions() {
   pfnCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(
@@ -375,8 +376,8 @@ void RtVulkanApp::createRayTracingPipeline() {
   // this push constant range takes up the size of a PushConstant struct
   pushConstant.size = sizeof(PushConstant);
   // this push constant range is accessible only in the ray gen and closest hit shader
-  pushConstant.stageFlags                         = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-  pipelineLayoutCreateInfo.pPushConstantRanges    = &pushConstant;
+  pushConstant.stageFlags                      = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+  pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstant;
   pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 
   if (vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
@@ -754,6 +755,7 @@ void set_image_layout(VkCommandBuffer command_buffer, VkImage image, VkImageLayo
   // Put barrier inside setup command buffer
   vkCmdPipelineBarrier(command_buffer, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
+
 void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
   if (appSettings.width != storageImage.width || appSettings.height != storageImage.height) {
     // If the view port size has changed, we need to recreate the storage image
@@ -814,7 +816,8 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
 
     constants.time = clock();
     // upload the matrix to the GPU via push constants
-    vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0, sizeof(PushConstant),
+    vkCmdPushConstants(commandBuffers[i], pipelineLayout,
+                       VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0, sizeof(PushConstant),
                        &constants);
 
     /*
@@ -857,91 +860,8 @@ void RtVulkanApp::buildCommandBuffers(uint32_t imageIndex) {
     set_image_layout(commandBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                      VK_IMAGE_LAYOUT_GENERAL, subresourceRange);
 
+    ui->render(i, imageIndex);
 
-    // TODO: move the following code to a new class (e.g. ui.h)
-    /*
-        Start a new render pass to draw the UI overlay on top of the ray traced image
-    */
-    VkClearValue clear_values[2];
-    clear_values[0].color        = {{0.0f, 0.0f, 0.033f, 0.0f}};
-    clear_values[1].depthStencil = {0.0f, 0};
-
-    VkRenderPassBeginInfo renderPassBeginInfo{};
-    renderPassBeginInfo.sType                       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBeginInfo.renderPass                  = renderPass;
-    renderPassBeginInfo.framebuffer                 = swapChainFramebuffers[imageIndex];
-    renderPassBeginInfo.renderArea.extent.width     = storageImage.width;
-    renderPassBeginInfo.renderArea.extent.height    = storageImage.height;
-    renderPassBeginInfo.clearValueCount             = 2;
-    renderPassBeginInfo.pClearValues                = clear_values;
-
-    vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Our state
-    bool   show_demo_window    = true;
-    bool   show_another_window = false;
-    ImVec4 clear_color         = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    // Start the Dear ImGui frame
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to
-    // learn more about Dear ImGui!).
-    if (show_demo_window)
-      ImGui::ShowDemoWindow(&show_demo_window);
-
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-    {
-      static float f       = 0.0f;
-      static int   counter = 0;
-
-      ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");          // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window); // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      if (ImGui::SliderInt("Path depth", (int *)&constants.maxDepth, 0, 10)) {
-        constants.frameNumber = 0;
-      } // Edit 1 float using a slider from 0.0f to 1.0f
-      if (ImGui::SliderInt("Samples ", (int *)&constants.numSamples, 0, 10)) {
-        constants.frameNumber = 0;
-      } 
-      ImGui::Text("Frame = %d", constants.frameNumber);
-
-      if (ImGui::SliderFloat("Roughness", (float *)&constants.roughness, 0, 1)) {
-        constants.frameNumber = 0;
-      }                                                        // Edit 1 float using a slider from 0.0f to 1.0f
-
-      ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
-        counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-    }
-
-    // 3. Show another simple window.
-    if (show_another_window) {
-      ImGui::Begin("Another Window", &show_another_window); // Pass a pointer to our bool variable (the window will have
-                                                            // a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-        show_another_window = false;
-      ImGui::End();
-    }
-
-    ImGui::Render();
-    auto       &io            = ImGui::GetIO();
-    ImDrawData *draw_data     = ImGui::GetDrawData();
-
-    // Record dear imgui primitives into command buffer
-    ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffers[i]);
-    vkCmdEndRenderPass(commandBuffers[i]);
     VK_CHECK(vkEndCommandBuffer(commandBuffers[i]));
   }
 }
@@ -980,8 +900,8 @@ void RtVulkanApp::initVulkan() {
   createCommandBuffers();
   createSyncObjects();
 
-  /* ImgUi */
-  initImgUi();
+  /* UI */
+  ui = new UI(this);
 }
 
 void RtVulkanApp::bindPipeline(VkCommandBuffer commandBuffer, VkPipeline pipeline) {
@@ -1072,6 +992,13 @@ void RtVulkanApp::drawFrame() {
   buildCommandBuffers(imageIndex);
 
   updateUniformBuffer(currentFrame);
+
+  if (state.materialsHaveChanged) {
+    // Update materials buffer.
+    memcpy(matColorBuffer.map, materials.data(), materials.size() * sizeof(Material));
+    constants.frameNumber = 0;
+    state.materialsHaveChanged = false;
+  }
 
   VkSubmitInfo submitInfo{};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

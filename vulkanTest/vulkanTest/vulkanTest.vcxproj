@@ -167,9 +167,12 @@
     <ClCompile Include="command.cpp" />
     <ClCompile Include="cube_map.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="material.cpp" />
     <ClCompile Include="rt_vulkan_app.cpp" />
+    <ClCompile Include="state.cpp" />
     <ClCompile Include="texture.cpp" />
     <ClCompile Include="texture_2D.cpp" />
+    <ClCompile Include="ui.cpp" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="vulkan_app.cpp" />
   </ItemGroup>
@@ -179,10 +182,18 @@
     <None Include=".clang-format" />
     <None Include="cpp.hint" />
     <None Include="shaders\closesthit.rchit" />
+    <None Include="shaders\compile.bat" />
+    <None Include="shaders\constants.glsl" />
+    <None Include="shaders\materials\common.glsl" />
+    <None Include="shaders\materials\rough.glsl" />
     <None Include="shaders\miss.rmiss" />
     <None Include="shaders\missShadow.rmiss" />
     <None Include="shaders\ndf\ggx.glsl" />
     <None Include="shaders\raygen.rgen" />
+    <None Include="shaders\rng.glsl" />
+    <None Include="shaders\struct.glsl" />
+    <None Include="shaders\util.glsl" />
+    <None Include="shaders\weight.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="texture.jpg" />
@@ -198,9 +209,12 @@
     <ClInclude Include="command.h" />
     <ClInclude Include="cube_map.h" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="material.h" />
     <ClInclude Include="rt_vulkan_app.h" />
+    <ClInclude Include="state.h" />
     <ClInclude Include="texture.h" />
     <ClInclude Include="texture_2D.h" />
+    <ClInclude Include="ui.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="vulkan_app.h" />
   </ItemGroup>

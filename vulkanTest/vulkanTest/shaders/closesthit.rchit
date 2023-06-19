@@ -60,7 +60,7 @@ void main()
 	// GGX sampling
 	float rand1 = stepAndOutputRNGFloat(prd.rngState);
 	float rand2 = stepAndOutputRNGFloat(prd.rngState);
-	vec3 m = normalize(ggx_sampling(N, rand1, rand2));
+	vec3 m = normalize(ggx_sampling(mat.roughness, N, rand1, rand2));
 
 	// Computing the coordinates of the hit position
 	vec3 P = v0.pos.xyz * barycentrics.x + v1.pos.xyz * barycentrics.y + v2.pos.xyz * barycentrics.z;
@@ -95,7 +95,7 @@ void main()
 		            tMax,              // ray max range
 		            1                  // payload (location = 1)
 		);
-		direct = rough_bsdf(L,normalize(-gl_WorldRayDirectionEXT),N,m) * vec3(NdotL); 
+		direct = rough_bsdf(mat, L,normalize(-gl_WorldRayDirectionEXT),N,m) * vec3(NdotL); 
 	}
 	// TODO remove 0.
 	mat.shininess = 0;
@@ -113,7 +113,7 @@ void main()
 	}
 
 	prd.radiance = direct * prd.attenuation;
-	prd.attenuation *= weight_heitz(normalize(-gl_WorldRayDirectionEXT),normalize(rayDir),m,N);
+	prd.attenuation *= weight_heitz(mat, normalize(-gl_WorldRayDirectionEXT),normalize(rayDir),m,N);
 	prd.rayOrigin = P + 0.1 * N;
 	prd.rayDir    = rayDir;
 }

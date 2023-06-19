@@ -15,7 +15,6 @@ uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, Vk
 };
 
 // Image
-
 void createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, VkFormat format,
                  VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
                  VkDeviceMemory &imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags) {

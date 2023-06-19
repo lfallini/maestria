@@ -6,5 +6,4 @@ layout(push_constant) uniform Constants
   int maxDepth;
   int numSamples;
   int time;
-  float roughness;
 } constants;

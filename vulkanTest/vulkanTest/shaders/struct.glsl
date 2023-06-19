@@ -19,9 +19,11 @@ struct WaveFrontMaterial
 	float pad;
 	vec3  specular;
 	float padding;
+    vec3  emission;
+    float padding_emission;
 	float shininess;
-	float padding1;
-	float padding2;
+	float roughness;
+	int materialType;
 	float padding3;
 };
 

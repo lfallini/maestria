@@ -72,6 +72,15 @@
     <ClCompile Include="..\libraries\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
+    <ClCompile Include="material.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
+    <ClCompile Include="ui.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
+    <ClCompile Include="state.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
@@ -90,6 +99,31 @@
     <None Include=".clang-format" />
     <None Include="..\libraries\imgui\imgui_impl_metal.mm" />
     <None Include="..\libraries\imgui\imgui_impl_osx.mm" />
+    <None Include="shaders\ndf\ggx.glsl" />
+    <None Include="shaders\materials\common.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\materials\rough.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\compile.bat">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\constants.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\rng.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\struct.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\util.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
+    <None Include="shaders\weight.glsl">
+      <Filter>Archivos de recursos\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="texture.jpg">
@@ -140,6 +174,15 @@
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
     <ClInclude Include="..\libraries\imgui\backends\imgui_impl_vulkan.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="material.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="ui.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="state.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>

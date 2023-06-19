@@ -1,4 +1,5 @@
 #pragma once
+#ifndef VULKAN_APP_H
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
@@ -32,9 +33,11 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "material.h"
 #include "texture_2D.h"
 #include "util.h"
 #include <chrono>
+#include "state.h"
 
 #define VK_CHECK(x)                                                                                                    \
   do {                                                                                                                 \
@@ -125,12 +128,6 @@ struct Vertex {
   }
 };
 
-struct Material {
-  glm::vec3 diffuse{0.7f};
-  glm::vec3 specular{0.7f};
-  float     shininess{0.f};
-};
-
 struct ObjBuffers {
   VkDeviceAddress vertices;
   VkDeviceAddress indices;
@@ -143,7 +140,6 @@ struct PushConstant {
   uint32_t maxDepth    = 2;
   uint32_t numSamples  = MAXINT - 1;
   uint32_t time;
-  float    roughness = 0.01;
 };
 
 namespace std {
@@ -202,6 +198,12 @@ struct AppSettings {
   uint32_t width = 1440, height = 900;
 };
 
+/*
+    Solving circular references:
+    https://stackoverflow.com/questions/625799/resolve-build-errors-due-to-circular-dependency-amongst-classes
+*/
+class UI;
+
 class VulkanApp {
 public:
   void run() {
@@ -213,7 +215,6 @@ public:
   virtual ~VulkanApp(){};
   VulkanApp(){};
 
-protected:
   AppSettings                  appSettings;
   GLFWwindow                  *window;
   VkInstance                   instance;
@@ -273,8 +274,8 @@ protected:
   uint32_t currentFrame       = 0;
   bool     framebufferResized = false;
 
-  // ImgUi
-  ImGui_ImplVulkanH_Window wd;
+  UI *ui;
+  State state;
 
   void initWindow();
 
@@ -293,7 +294,6 @@ protected:
   VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
                                VkFormatFeatureFlags features);
   void     createDepthResources();
-  void     copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
   void     transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
   void     createDescriptorSets();
   void     createDescriptorPool();
@@ -304,7 +304,6 @@ protected:
   void     copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
   void     createVertexBuffer();
   void     createMaterialBuffer();
-  void     createBufferReferences();
   void     cleanupSwapChain();
   void     recreateSwapChain();
   void     createSyncObjects();
@@ -328,7 +327,6 @@ protected:
   VkSurfaceFormatKHR      chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
   VkPresentModeKHR        chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
   VkExtent2D              chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
-  void                    initImgUi();
   void                    mainLoop();
   void virtual drawFrame();
   void         cleanup();
@@ -383,12 +381,6 @@ protected:
     auto handler = static_cast<VulkanApp *>(glfwGetWindowUserPointer(window));
     handler->mouseButtonCallback(button, action, mods);
   }
-
-  static void check_vk_result(VkResult err) {
-    if (err == 0)
-      return;
-    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
-    if (err < 0)
-      abort();
-  }
 };
+
+#endif // !VULKAN_APP_H
