@@ -330,7 +330,7 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage) {
   camera.type = CameraType::LookAt;
   camera.set_perspective(60.0f, static_cast<float>(appSettings.width) / static_cast<float>(appSettings.height), 0.1f,
                          512.0f);
-  camera.set_translation(glm::vec3(0.0f, 0.0f, -1.0f));
+  camera.set_translation(glm::vec3(0.0f, 0.0f, -7.0f));
 
   UniformBufferObject ubo{};
   /*
@@ -1331,9 +1331,11 @@ bool VulkanApp::checkValidationLayerSupport() {
 
 CubeMap VulkanApp::loadCubeMap() {
 
-  CubeMap cubemap =
-      CubeMap({"./textures/skybox/right.jpg", "./textures/skybox/left.jpg", "./textures/skybox/top.jpg",
-               "./textures/skybox/bottom.jpg", "./textures/skybox/front.jpg", "./textures/skybox/back.jpg"},
+  std::string base = "./textures/vestibule";
+  std::string nx = "/nx.png", px = "/px.png", ny = "/ny.png", py = "/py.png", nz = "/nz.png", pz = "/pz.png";
+  CubeMap     cubemap =
+      CubeMap({base + px, base + nx, base + py,
+               base + ny, base + pz, base + nz},
               device, physicalDevice);
 
   Command cmd = Command(device, commandPool, graphicsQueue);

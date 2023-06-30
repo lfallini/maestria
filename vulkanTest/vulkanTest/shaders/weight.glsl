@@ -16,9 +16,15 @@ float weight(WaveFrontMaterial material, vec3 i, vec3 o, vec3 m, vec3 n) {
 // "Importance Sampling Microfacet-Based BSDFs using the Distribution of Visible Normals".
 float weight_heitz(WaveFrontMaterial material, vec3 i, vec3 o, vec3 m, vec3 n) {
   float alpha = material.roughness;
-  return ggx_g1(alpha, o, m, n);
+
+  if (material.ndf == GGX)
+    return ggx_g1(alpha, o, m, n);
+  if (material.ndf == BECKMANN)
+    return beckmann_g1(alpha, o, m, n);
+  if (material.ndf == PHONG)
+    return phong_g1(alpha, o, m, n);
   /*
-   Above formula should be equal to ggx_G(i,o,m,n) / ggx_g1(i,m,n), but for
+   Above formula should be equal to G(i,o,m,n) / g1(i,m,n), but for
    some reason doesn't work :(
   */
 }

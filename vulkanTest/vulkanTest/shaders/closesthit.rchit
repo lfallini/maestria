@@ -7,8 +7,11 @@
 
 #include "struct.glsl"
 #include "rng.glsl"
+
 #include "ndf/ggx.glsl"
 #include "ndf/phong.glsl"
+#include "ndf/beckmann.glsl"
+
 #include "materials/rough.glsl"
 #include "weight.glsl"
 
@@ -57,10 +60,17 @@ void main()
 	if (dot(N,gl_WorldRayDirectionEXT) > 0)
 		N = -N;
 
-	// GGX sampling
+	// Sample distribution
 	float rand1 = stepAndOutputRNGFloat(prd.rngState);
 	float rand2 = stepAndOutputRNGFloat(prd.rngState);
-	vec3 m = normalize(ggx_sampling(mat.roughness, N, rand1, rand2));
+	
+	vec3 m;
+	if (mat.ndf == GGX)
+		m = ggx_sampling(mat.roughness, N, rand1, rand2);
+	if (mat.ndf == BECKMANN)
+		m = beckmann_sampling(mat.roughness, N, rand1, rand2);
+
+	m = normalize(m);
 
 	// Computing the coordinates of the hit position
 	vec3 P = v0.pos.xyz * barycentrics.x + v1.pos.xyz * barycentrics.y + v2.pos.xyz * barycentrics.z;
@@ -70,10 +80,11 @@ void main()
 	vec3 L = normalize(vec3(0, 5, 5) - P);
 	float NdotL = dot(N, L);
 
-	vec3 diffuse  = mat.diffuse * max(NdotL, 0.0);
+	vec3 diffuse  = mat.diffuse;
 	vec3 direct = vec3(0);
 
-	// Tracing shadow ray only if the light is visible from the surface
+	// direct light
+	vec3 Ld = vec3(0.0f);
 	if (NdotL > 0)
 	{
 		float tMin   = 0.0001;
@@ -95,25 +106,27 @@ void main()
 		            tMax,              // ray max range
 		            1                  // payload (location = 1)
 		);
-		direct = rough_bsdf(mat, L,normalize(-gl_WorldRayDirectionEXT),N,m) * vec3(NdotL); 
+		float Li = 0;
+		// pdf = 1 for point lights
+		float pdf = 1.0f;
+		
+		if (!isShadowed)
+			Ld = rough_bsdf(mat, L,normalize(-gl_WorldRayDirectionEXT),N,m) * abs(NdotL) * Li / pdf; 
 	}
 	// TODO remove 0.
 	mat.shininess = 0;
 	
 	// Reflect
-	vec3 rayDir;
-	
-	if (length(mat.specular) > 0)
-		rayDir = reflect(gl_WorldRayDirectionEXT, m);
-	else{
-		const float theta = 6.2831853 * stepAndOutputRNGFloat(prd.rngState);  // Random in [0, 2pi]
-		const float u     = 2.0 * stepAndOutputRNGFloat(prd.rngState) - 1.0;  // Random in [-1, 1]
-		const float r     = sqrt(1.0 - u * u);
-		rayDir            = N + vec3(r * cos(theta), r * sin(theta), u);
-	}
+	vec3 reflected = reflect(gl_WorldRayDirectionEXT, m);
 
-	prd.radiance = direct * prd.attenuation;
-	prd.attenuation *= weight_heitz(mat, normalize(-gl_WorldRayDirectionEXT),normalize(rayDir),m,N);
-	prd.rayOrigin = P + 0.1 * N;
-	prd.rayDir    = rayDir;
+	prd.radiance += prd.attenuation * Ld;
+	prd.attenuation *= mat.diffuse * weight(mat, normalize(-gl_WorldRayDirectionEXT),normalize(reflected),m,N);
+	/*
+		By applying PBR formula (https://www.pbr-book.org/3ed-2018/Light_Transport_I_Surface_Reflection/Path_Tracing#fragment-SampleBSDFtogetnewpathdirection-0)
+		attenuation values are to low, therefore we get dark objects.
+	prd.attenuation *= getAttenuation(mat, reflected, -gl_WorldRayDirectionEXT, N, m);
+	*/
+	
+	prd.rayOrigin = P + 0.001 * N;
+	prd.rayDir    = reflected;
 }

@@ -35,6 +35,6 @@ layout(binding = 4) uniform samplerCube cubeMapTexture;
 
 void main()
 {
-	prd.radiance = texture(cubeMapTexture, prd.rayDir).xyz * prd.attenuation;
+	prd.radiance += texture(cubeMapTexture, prd.rayDir).xyz * prd.attenuation;
 	prd.done     = 1;
 }

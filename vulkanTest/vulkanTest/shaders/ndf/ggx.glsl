@@ -26,7 +26,7 @@ float ggx_g1(float alpha, vec3 v, vec3 m, vec3 n) {
     float theta_v = acos(dot(v, n));
     return 2.0f / (1.0f + sqrt(1.0f + pow(alpha, 2) * pow(tan(theta_v), 2)));
   } else {
-    return 0;
+    return 0.0;
   }
 }
 
@@ -45,7 +45,7 @@ float ggx_G(float alpha, vec3 wi, vec3 wo, vec3 m, vec3 n) {
 float ggx_D(float alpha, vec3 m, vec3 n) {
   float mDotn   = dot(m, n);
   float theta_m = acos(mDotn);
-  return (mDotn > 0 ? pow(alpha, 2) / (PI * pow(cos(theta_m), 4) * pow(pow(alpha, 2) + pow(tan(theta_m), 2), 2)) : 1);
+  return (mDotn > 0 ? pow(alpha, 2) / (PI * pow(cos(theta_m), 4) * pow(pow(alpha, 2) + pow(tan(theta_m), 2), 2)) : 0);
 };
 
 #endif // GGX_GLSL

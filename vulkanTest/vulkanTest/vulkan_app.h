@@ -51,8 +51,11 @@
 // const std::string BASE_PATH    = "./models/cornell-box";
 // const std::string MODEL_PATH   = "./models/cornell-box/Corn ellBox-Original.obj";
 
-const std::string BASE_PATH  = "./models/sphere";
-const std::string MODEL_PATH = "./models/sphere/sphere.obj";
+//const std::string BASE_PATH  = "./models/sphere";
+//const std::string MODEL_PATH = "./models/sphere/sphere.obj";
+ 
+ const std::string BASE_PATH  = "./models/mitsuba-knob";
+ const std::string MODEL_PATH = "./models/mitsuba-knob/mitsuba-sphere.obj";
 
 const std::string TEXTURE_PATH = "./viking_room.png";
 
@@ -137,7 +140,7 @@ struct ObjBuffers {
 
 struct PushConstant {
   uint32_t frameNumber = 0;
-  uint32_t maxDepth    = 2;
+  uint32_t maxDepth    = 3;
   uint32_t numSamples  = MAXINT - 1;
   uint32_t time;
 };

@@ -146,7 +146,7 @@ void UI::render(uint32_t i, uint32_t imageIndex) {
   // 3. Show another simple window.
   if (show_another_window) {
     ImGui::Begin("Another Window", &show_another_window);
-        ImGui::Text("Hello from another window!");
+    ImGui::Text("Hello from another window!");
     if (ImGui::Button("Close Me"))
       show_another_window = false;
     ImGui::End();
@@ -161,42 +161,50 @@ void UI::render(uint32_t i, uint32_t imageIndex) {
   vkCmdEndRenderPass(vkApp->commandBuffers[i]);
 }
 
- void UI::renderMaterialsUI(Material &material) {
-   ImGui::Text("Material Type");
-   const char *materialTypes[]  = {"Specular", "Rough", "Diffuse"};
-   const int   numMaterialTypes = sizeof(materialTypes) / sizeof(materialTypes[0]);
-   if (ImGui::Combo("##MaterialType", (int *)&material.materialType, materialTypes, numMaterialTypes)) {
-     // Handle material type change
-     vkApp->state.materialsHaveChanged = true;
-   }
+void UI::renderMaterialsUI(Material &material) {
+  ImGui::Text("Material Type");
+  const char *materialTypes[]  = {"Specular", "Rough", "Diffuse"};
+  const char *ndfTypes[]       = {"GGX", "Beckmann", "Phong"};
+  const int   numMaterialTypes = sizeof(materialTypes) / sizeof(materialTypes[0]);
+  const int   numNdfTypes      = sizeof(ndfTypes) / sizeof(ndfTypes[0]);
 
-   ImGui::Text("Diffuse Color");
-   if (ImGui::ColorEdit3("##DiffuseColor", glm::value_ptr(material.diffuse))) {
-     // Handle diffuse color change
-     vkApp->state.materialsHaveChanged = true;
-   }
+  if (ImGui::Combo("##MaterialType", (int *)&material.materialType, materialTypes, numMaterialTypes)) {
+    // Handle material type change
+    vkApp->state.materialsHaveChanged = true;
+  }
 
-   ImGui::Text("Specular Color");
-   if (ImGui::ColorEdit3("##SpecularColor", glm::value_ptr(material.specular))) {
-     // Handle specular color change
-     vkApp->state.materialsHaveChanged = true;
-   }
+  if (ImGui::Combo("##Ndf", (int *)&material.ndf, ndfTypes, numNdfTypes)) {
+    // Handle material type change
+    vkApp->state.materialsHaveChanged = true;
+  }
 
-   ImGui::Text("Emission Color");
-   if (ImGui::ColorEdit3("##EmissionColor", glm::value_ptr(material.emission))) {
-     // Handle emission color change
-     vkApp->state.materialsHaveChanged = true;
-   }
+  ImGui::Text("Diffuse Color");
+  if (ImGui::ColorEdit3("##DiffuseColor", glm::value_ptr(material.diffuse))) {
+    // Handle diffuse color change
+    vkApp->state.materialsHaveChanged = true;
+  }
 
-   ImGui::Text("Roughness");
-   if (ImGui::SliderFloat("##Roughness", &material.roughness, 0.0f, 1.0f)) {
-     // Handle roughness change
-     vkApp->state.materialsHaveChanged = true;
-   }
+  ImGui::Text("Specular Color");
+  if (ImGui::ColorEdit3("##SpecularColor", glm::value_ptr(material.specular))) {
+    // Handle specular color change
+    vkApp->state.materialsHaveChanged = true;
+  }
 
-   ImGui::Text("Shininess");
-   if (ImGui::SliderFloat("##Shininess", &material.shininess, 0.0f, 100.0f)) {
-     // Handle shininess change
-     vkApp->state.materialsHaveChanged = true;
-   }
- }
+  ImGui::Text("Emission Color");
+  if (ImGui::ColorEdit3("##EmissionColor", glm::value_ptr(material.emission))) {
+    // Handle emission color change
+    vkApp->state.materialsHaveChanged = true;
+  }
+
+  ImGui::Text("Roughness");
+  if (ImGui::SliderFloat("##Roughness", &material.roughness, 0.0f, 1.0f)) {
+    // Handle roughness change
+    vkApp->state.materialsHaveChanged = true;
+  }
+
+  ImGui::Text("Shininess");
+  if (ImGui::SliderFloat("##Shininess", &material.shininess, 0.0f, 100.0f)) {
+    // Handle shininess change
+    vkApp->state.materialsHaveChanged = true;
+  }
+}
